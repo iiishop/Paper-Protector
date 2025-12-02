@@ -1,0 +1,608 @@
+<style>
+  /* Serial Monitor Specific Styles */
+
+  /* Topic Group Styles */
+  .topic-group {
+    margin-bottom: var(--spacing-md);
+    animation: slideIn 0.2s ease-out;
+  }
+
+  @keyframes slideIn {
+    from {
+      opacity: 0;
+      transform: translateX(-10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateX(0);
+    }
+  }
+
+  .topic-header {
+    font-weight: 600;
+    color: var(--primary-color);
+    margin-bottom: var(--spacing-sm);
+    padding: var(--spacing-sm);
+    background-color: var(--primary-light);
+    border-radius: var(--border-radius);
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+  }
+
+  /* Messages List Styles */
+  .messages-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+  }
+
+  .message-item {
+    padding: var(--spacing-sm);
+    background-color: var(--surface-color);
+    border-left: 3px solid var(--secondary-color);
+    border-radius: var(--border-radius);
+    font-size: var(--font-size-sm);
+    transition: transform 0.1s ease;
+    animation: messageAppear 0.2s ease-out;
+  }
+
+  @keyframes messageAppear {
+    from {
+      opacity: 0;
+      transform: translateY(-5px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .message-item:hover {
+    transform: translateX(2px);
+    box-shadow: var(--shadow-sm);
+  }
+
+  .message-timestamp {
+    color: var(--text-secondary);
+    font-size: var(--font-size-sm);
+    font-weight: 500;
+  }
+
+  .message-payload {
+    margin-top: var(--spacing-xs);
+    font-family: "Courier New", Courier, monospace;
+    word-break: break-all;
+    color: var(--text-primary);
+    background-color: var(--background-color);
+    padding: var(--spacing-xs);
+    border-radius: var(--border-radius);
+  }
+
+  /* Subscription List Styles */
+  #subscribed-topics-list {
+    max-height: 200px;
+    overflow-y: auto;
+  }
+
+  #subscribed-topics-list .module-list-item {
+    transition: background-color 0.2s ease;
+  }
+
+  #subscribed-topics-list .module-list-item:hover {
+    background-color: var(--primary-light);
+  }
+
+  /* Form Styles */
+  #subscription-form,
+  #publish-form {
+    background-color: var(--background-color);
+    padding: var(--spacing-md);
+    border-radius: var(--border-radius);
+  }
+
+  /* Messages Container Styles */
+  #messages-container {
+    background-color: var(--background-color);
+    min-height: 300px;
+    max-height: 500px;
+  }
+
+  #messages-container:empty::after {
+    content: "等待消息...";
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100%;
+    color: var(--text-secondary);
+  }
+
+  /* Feedback Styles */
+  #publish-feedback .module-message {
+    animation: fadeInDown 0.3s ease-out;
+  }
+
+  @keyframes fadeInDown {
+    from {
+      opacity: 0;
+      transform: translateY(-10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  /* Button Styles */
+  .btn {
+    transition: all 0.2s ease;
+  }
+
+  .btn:hover {
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-md);
+  }
+
+  .btn:active {
+    transform: translateY(0);
+  }
+
+  /* Responsive Styles */
+  @media (max-width: 768px) {
+    .module-form-row {
+      flex-direction: column;
+    }
+
+    .module-form-row button {
+      width: 100%;
+    }
+
+    #messages-container {
+      max-height: 400px;
+    }
+  }
+</style>
+
+<!-- Serial Monitor Module -->
+<div class="module-header">
+  <h2 class="module-title">串口监视器</h2>
+  <div class="module-actions">
+    <button class="btn btn-secondary" id="clear-messages-btn">清空消息</button>
+  </div>
+</div>
+
+<div class="module-content">
+  <!-- Subscription Management Section -->
+  <div class="module-section">
+    <h3 class="module-section-title">订阅管理</h3>
+    <form class="module-form" id="subscription-form">
+      <div class="module-form-row">
+        <div class="module-form-group">
+          <label for="subscribe-topic">主题</label>
+          <input
+            type="text"
+            id="subscribe-topic"
+            placeholder="例如: sensor/temp"
+            required
+          />
+        </div>
+        <button type="submit" class="btn btn-primary">订阅</button>
+      </div>
+    </form>
+
+    <div class="mt-md">
+      <strong>已订阅主题:</strong>
+      <ul class="module-list" id="subscribed-topics-list">
+        <li class="module-list-item text-muted">暂无订阅</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- Message Display Section -->
+  <div class="module-section">
+    <h3 class="module-section-title">消息显示</h3>
+    <div class="module-scrollable" id="messages-container">
+      <div class="text-muted text-center p-md">等待消息...</div>
+    </div>
+  </div>
+
+  <!-- Message Sending Section -->
+  <div class="module-section">
+    <h3 class="module-section-title">发送消息</h3>
+    <form class="module-form" id="publish-form">
+      <div class="module-form-group">
+        <label for="publish-topic">主题</label>
+        <input
+          type="text"
+          id="publish-topic"
+          placeholder="例如: led/control"
+          required
+        />
+      </div>
+      <div class="module-form-group">
+        <label for="publish-payload">内容</label>
+        <textarea
+          id="publish-payload"
+          rows="3"
+          placeholder="例如: ON"
+          required
+        ></textarea>
+      </div>
+      <button type="submit" class="btn btn-primary">发送</button>
+    </form>
+
+    <!-- Feedback Message Area -->
+    <div id="publish-feedback" class="mt-md"></div>
+  </div>
+</div>
+
+<script>
+  /**
+   * Serial Monitor Module
+   * Manages topic subscriptions, displays messages by topic, and sends messages
+   */
+
+  // Module state
+  let serialMonitorState = {
+    pubsubClient: null,
+    subscribedTopics: new Set(),
+    messagesByTopic: new Map(), // topic -> array of messages
+    maxMessagesPerTopic: 100,
+  };
+
+  /**
+   * Initialize the serial monitor module
+   * This function is called by the module loader
+   */
+  function init_serial_monitor(pubsubClient) {
+    console.log("Initializing Serial Monitor module...");
+
+    serialMonitorState.pubsubClient = pubsubClient;
+
+    // Set up event listeners
+    setupSubscriptionForm();
+    setupPublishForm();
+    setupClearButton();
+
+    console.log("Serial Monitor module initialized");
+  }
+
+  /**
+   * Setup subscription form handler
+   */
+  function setupSubscriptionForm() {
+    const form = document.getElementById("subscription-form");
+    const topicInput = document.getElementById("subscribe-topic");
+
+    form.addEventListener("submit", (e) => {
+      e.preventDefault();
+
+      const topic = topicInput.value.trim();
+      if (!topic) {
+        return;
+      }
+
+      // Check if already subscribed
+      if (serialMonitorState.subscribedTopics.has(topic)) {
+        showFeedback("publish-feedback", `已经订阅了主题: ${topic}`, "warning");
+        return;
+      }
+
+      // Subscribe to topic
+      subscribeToTopic(topic);
+
+      // Clear input
+      topicInput.value = "";
+    });
+  }
+
+  /**
+   * Subscribe to a topic
+   */
+  function subscribeToTopic(topic) {
+    const callback = (receivedTopic, payload) => {
+      handleIncomingMessage(receivedTopic, payload);
+    };
+
+    // Subscribe through PubSubClient
+    serialMonitorState.pubsubClient.subscribe(topic, callback);
+
+    // Add to subscribed topics
+    serialMonitorState.subscribedTopics.add(topic);
+
+    // Initialize message array for this topic
+    if (!serialMonitorState.messagesByTopic.has(topic)) {
+      serialMonitorState.messagesByTopic.set(topic, []);
+    }
+
+    // Update UI
+    updateSubscribedTopicsList();
+
+    console.log(`Subscribed to topic: ${topic}`);
+  }
+
+  /**
+   * Unsubscribe from a topic
+   */
+  function unsubscribeFromTopic(topic) {
+    // Unsubscribe through PubSubClient
+    serialMonitorState.pubsubClient.unsubscribe(topic);
+
+    // Remove from subscribed topics
+    serialMonitorState.subscribedTopics.delete(topic);
+
+    // Update UI
+    updateSubscribedTopicsList();
+    updateMessagesDisplay();
+
+    console.log(`Unsubscribed from topic: ${topic}`);
+  }
+
+  /**
+   * Update the subscribed topics list in UI
+   */
+  function updateSubscribedTopicsList() {
+    const listElement = document.getElementById("subscribed-topics-list");
+
+    if (serialMonitorState.subscribedTopics.size === 0) {
+      listElement.innerHTML =
+        '<li class="module-list-item text-muted">暂无订阅</li>';
+      return;
+    }
+
+    listElement.innerHTML = "";
+
+    serialMonitorState.subscribedTopics.forEach((topic) => {
+      const li = document.createElement("li");
+      li.className = "module-list-item";
+
+      const topicSpan = document.createElement("span");
+      topicSpan.textContent = topic;
+
+      const unsubBtn = document.createElement("button");
+      unsubBtn.className = "btn btn-danger";
+      unsubBtn.textContent = "取消订阅";
+      unsubBtn.style.padding = "4px 8px";
+      unsubBtn.style.fontSize = "12px";
+      unsubBtn.onclick = () => unsubscribeFromTopic(topic);
+
+      li.appendChild(topicSpan);
+      li.appendChild(unsubBtn);
+      listElement.appendChild(li);
+    });
+  }
+
+  /**
+   * Handle incoming message
+   */
+  function handleIncomingMessage(topic, payload) {
+    // Add message to topic's message array
+    if (!serialMonitorState.messagesByTopic.has(topic)) {
+      serialMonitorState.messagesByTopic.set(topic, []);
+    }
+
+    const messages = serialMonitorState.messagesByTopic.get(topic);
+    messages.push({
+      topic: topic,
+      payload: payload,
+      timestamp: new Date(),
+    });
+
+    // Limit message history
+    if (messages.length > serialMonitorState.maxMessagesPerTopic) {
+      messages.shift();
+    }
+
+    // Update display
+    updateMessagesDisplay();
+
+    // Auto-scroll to latest message
+    scrollToLatestMessage();
+  }
+
+  /**
+   * Update messages display (grouped by topic)
+   */
+  function updateMessagesDisplay() {
+    const container = document.getElementById("messages-container");
+
+    // Check if there are any messages
+    let hasMessages = false;
+    for (const messages of serialMonitorState.messagesByTopic.values()) {
+      if (messages.length > 0) {
+        hasMessages = true;
+        break;
+      }
+    }
+
+    if (!hasMessages) {
+      container.innerHTML =
+        '<div class="text-muted text-center p-md">等待消息...</div>';
+      return;
+    }
+
+    // Clear container
+    container.innerHTML = "";
+
+    // Display messages grouped by topic
+    serialMonitorState.subscribedTopics.forEach((topic) => {
+      const messages = serialMonitorState.messagesByTopic.get(topic) || [];
+
+      if (messages.length === 0) {
+        return;
+      }
+
+      // Create topic group
+      const topicGroup = document.createElement("div");
+      topicGroup.className = "topic-group";
+      topicGroup.style.marginBottom = "var(--spacing-md)";
+
+      // Topic header
+      const topicHeader = document.createElement("div");
+      topicHeader.className = "topic-header";
+      topicHeader.style.fontWeight = "600";
+      topicHeader.style.color = "var(--primary-color)";
+      topicHeader.style.marginBottom = "var(--spacing-sm)";
+      topicHeader.style.padding = "var(--spacing-sm)";
+      topicHeader.style.backgroundColor = "var(--primary-light)";
+      topicHeader.style.borderRadius = "var(--border-radius)";
+      topicHeader.textContent = `📡 ${topic} (${messages.length})`;
+
+      topicGroup.appendChild(topicHeader);
+
+      // Messages list
+      const messagesList = document.createElement("div");
+      messagesList.className = "messages-list";
+
+      messages.forEach((msg) => {
+        const messageItem = document.createElement("div");
+        messageItem.className = "message-item";
+        messageItem.style.padding = "var(--spacing-sm)";
+        messageItem.style.marginBottom = "var(--spacing-xs)";
+        messageItem.style.backgroundColor = "var(--surface-color)";
+        messageItem.style.borderLeft = "3px solid var(--secondary-color)";
+        messageItem.style.borderRadius = "var(--border-radius)";
+        messageItem.style.fontSize = "var(--font-size-sm)";
+
+        const timestamp = document.createElement("div");
+        timestamp.className = "message-timestamp";
+        timestamp.style.color = "var(--text-secondary)";
+        timestamp.style.fontSize = "var(--font-size-sm)";
+        timestamp.textContent = formatTimestamp(msg.timestamp);
+
+        const payload = document.createElement("div");
+        payload.className = "message-payload";
+        payload.style.marginTop = "var(--spacing-xs)";
+        payload.style.fontFamily = "monospace";
+        payload.style.wordBreak = "break-all";
+        payload.textContent = msg.payload;
+
+        messageItem.appendChild(timestamp);
+        messageItem.appendChild(payload);
+        messagesList.appendChild(messageItem);
+      });
+
+      topicGroup.appendChild(messagesList);
+      container.appendChild(topicGroup);
+    });
+  }
+
+  /**
+   * Format timestamp for display
+   */
+  function formatTimestamp(date) {
+    const hours = String(date.getHours()).padStart(2, "0");
+    const minutes = String(date.getMinutes()).padStart(2, "0");
+    const seconds = String(date.getSeconds()).padStart(2, "0");
+    const ms = String(date.getMilliseconds()).padStart(3, "0");
+    return `${hours}:${minutes}:${seconds}.${ms}`;
+  }
+
+  /**
+   * Scroll to the latest message
+   */
+  function scrollToLatestMessage() {
+    const container = document.getElementById("messages-container");
+    if (container) {
+      // Smooth scroll to bottom
+      container.scrollTop = container.scrollHeight;
+    }
+  }
+
+  /**
+   * Setup publish form handler
+   */
+  function setupPublishForm() {
+    const form = document.getElementById("publish-form");
+    const topicInput = document.getElementById("publish-topic");
+    const payloadInput = document.getElementById("publish-payload");
+
+    form.addEventListener("submit", (e) => {
+      e.preventDefault();
+
+      const topic = topicInput.value.trim();
+      const payload = payloadInput.value.trim();
+
+      // Validate inputs
+      if (!topic || !payload) {
+        showFeedback("publish-feedback", "主题和内容不能为空", "error");
+        return;
+      }
+
+      // Publish message
+      const success = serialMonitorState.pubsubClient.publish(topic, payload);
+
+      if (success) {
+        showFeedback(
+          "publish-feedback",
+          `消息已发送到主题: ${topic}`,
+          "success"
+        );
+
+        // Clear inputs
+        topicInput.value = "";
+        payloadInput.value = "";
+      } else {
+        showFeedback("publish-feedback", "发送失败: WebSocket未连接", "error");
+      }
+    });
+  }
+
+  /**
+   * Setup clear button
+   */
+  function setupClearButton() {
+    const clearBtn = document.getElementById("clear-messages-btn");
+
+    clearBtn.addEventListener("click", () => {
+      // Clear all messages
+      serialMonitorState.messagesByTopic.clear();
+
+      // Reinitialize message arrays for subscribed topics
+      serialMonitorState.subscribedTopics.forEach((topic) => {
+        serialMonitorState.messagesByTopic.set(topic, []);
+      });
+
+      // Update display
+      updateMessagesDisplay();
+
+      console.log("Messages cleared");
+    });
+  }
+
+  /**
+   * Show feedback message
+   */
+  function showFeedback(elementId, message, type = "info") {
+    const feedbackElement = document.getElementById(elementId);
+
+    feedbackElement.innerHTML = `
+        <div class="module-message ${type}">
+            ${message}
+        </div>
+    `;
+
+    // Auto-hide after 3 seconds
+    setTimeout(() => {
+      feedbackElement.innerHTML = "";
+    }, 3000);
+  }
+
+  /**
+   * Cleanup function (called when module is unloaded)
+   */
+  function cleanup_serial_monitor() {
+    console.log("Cleaning up Serial Monitor module...");
+
+    // Unsubscribe from all topics
+    serialMonitorState.subscribedTopics.forEach((topic) => {
+      serialMonitorState.pubsubClient.unsubscribe(topic);
+    });
+
+    // Clear state
+    serialMonitorState.subscribedTopics.clear();
+    serialMonitorState.messagesByTopic.clear();
+
+    console.log("Serial Monitor module cleaned up");
+  }
+</script>

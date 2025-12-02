@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Arduino Serial PubSub Dashboard</title>
+    <link rel="stylesheet" href="styles/main.css" />
+    <link rel="stylesheet" href="styles/module.css" />
+  </head>
+  <body>
+    <!-- Navigation Bar -->
+    <nav class="navbar">
+      <div class="navbar-brand">
+        <h1>Arduino Dashboard</h1>
+      </div>
+      <div class="navbar-status">
+        <span class="status-label">连接状态:</span>
+        <span id="connection-status" class="status-indicator disconnected"
+          >断开</span
+        >
+      </div>
+    </nav>
+
+    <!-- Main Container -->
+    <main class="main-container">
+      <!-- Module Container -->
+      <div id="module-container" class="module-container">
+        <div class="welcome-message">
+          <h2>欢迎使用 Arduino Serial PubSub Dashboard</h2>
+          <p>等待连接到 Bridge Server...</p>
+        </div>
+      </div>
+    </main>
+
+    <!-- Scripts -->
+    <script src="core/pubsub_client.js"></script>
+    <script src="core/module_loader.js"></script>
+    <script src="app.js"></script>
+  </body>
+</html>
