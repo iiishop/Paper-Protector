@@ -5,6 +5,7 @@ Connects Arduino serial communication with WebSocket clients
 import asyncio
 import logging
 import json
+from contextlib import asynccontextmanager
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -20,22 +21,6 @@ logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
-
-# Create FastAPI application
-app = FastAPI(
-    title="Arduino Bridge Server",
-    description="Bridge between Arduino serial communication and WebSocket clients",
-    version="1.0.0"
-)
-
-# Configure CORS
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],  # In production, specify exact origins
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
 
 # Global instances
 ws_manager = WebSocketManager(max_connections=config.max_ws_connections)
@@ -103,9 +88,13 @@ async def serial_status_callback(connected: bool):
     })
 
 
-@app.on_event("startup")
-async def startup_event():
-    """Initialize services on application startup"""
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """
+    Lifespan context manager for startup and shutdown events
+    Replaces the deprecated @app.on_event decorators
+    """
+    # Startup
     logger.info("Bridge Server starting...")
     logger.info(f"Serial port: {config.serial_port}")
     logger.info(f"Baudrate: {config.baudrate}")
@@ -121,11 +110,10 @@ async def startup_event():
     asyncio.create_task(serial_to_websocket_task())
     
     logger.info("Bridge Server started successfully")
-
-
-@app.on_event("shutdown")
-async def shutdown_event():
-    """Cleanup on application shutdown"""
+    
+    yield  # Server is running
+    
+    # Shutdown
     logger.info("Bridge Server shutting down...")
     
     # Stop reconnection loop
@@ -135,6 +123,24 @@ async def shutdown_event():
     await serial_handler.disconnect()
     
     logger.info("Bridge Server shutdown complete")
+
+
+# Create FastAPI application with lifespan
+app = FastAPI(
+    title="Arduino Bridge Server",
+    description="Bridge between Arduino serial communication and WebSocket clients",
+    version="1.0.0",
+    lifespan=lifespan
+)
+
+# Configure CORS
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # In production, specify exact origins
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 class PublishRequest(BaseModel):
