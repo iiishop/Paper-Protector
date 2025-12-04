@@ -25,9 +25,14 @@ document.addEventListener('DOMContentLoaded', () => {
     pubsubClient.onStatusChange((status) => {
         updateConnectionStatus(status);
 
-        // Auto-load serial monitor when connected
-        if (status === 'connected' && !moduleLoader.isModuleLoaded('serial_monitor')) {
-            loadSerialMonitor();
+        // Auto-load modules when connected
+        if (status === 'connected') {
+            if (!moduleLoader.isModuleLoaded('serial_monitor')) {
+                loadSerialMonitor();
+            }
+            if (!moduleLoader.isModuleLoaded('stepper_debug')) {
+                loadStepperDebug();
+            }
         }
     });
 
@@ -51,6 +56,12 @@ function registerModules() {
         title: '串口监视器'
     });
 
+    // Register Stepper Motor Debug module
+    moduleLoader.registerModule('stepper_debug', {
+        path: 'modules/stepper_debug.html',
+        title: '步进电机调试'
+    });
+
     console.log('Modules registered');
 }
 
@@ -65,6 +76,20 @@ async function loadSerialMonitor() {
         console.log('Serial Monitor module loaded');
     } else {
         console.error('Failed to load Serial Monitor module');
+    }
+}
+
+/**
+ * Load Stepper Debug module
+ */
+async function loadStepperDebug() {
+    console.log('Loading Stepper Debug module...');
+    const success = await moduleLoader.loadModule('stepper_debug', 'module-container');
+
+    if (success) {
+        console.log('Stepper Debug module loaded');
+    } else {
+        console.error('Failed to load Stepper Debug module');
     }
 }
 

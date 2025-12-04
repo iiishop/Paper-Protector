@@ -63,11 +63,36 @@ class ModuleLoader {
             const moduleWrapper = document.createElement('div');
             moduleWrapper.id = `module-${moduleName}`;
             moduleWrapper.className = 'module-wrapper';
-            moduleWrapper.innerHTML = html;
+
+            // Parse HTML to extract scripts
+            const tempDiv = document.createElement('div');
+            tempDiv.innerHTML = html;
+
+            // Extract and execute scripts separately
+            const scripts = tempDiv.querySelectorAll('script');
+            const scriptContents = [];
+            scripts.forEach(script => {
+                scriptContents.push(script.textContent);
+                script.remove(); // Remove from temp div
+            });
+
+            // Set the HTML without scripts
+            moduleWrapper.innerHTML = tempDiv.innerHTML;
 
             // Clear container and add module
             container.innerHTML = '';
             container.appendChild(moduleWrapper);
+
+            // Execute scripts in order
+            scriptContents.forEach(scriptContent => {
+                try {
+                    const scriptElement = document.createElement('script');
+                    scriptElement.textContent = scriptContent;
+                    document.body.appendChild(scriptElement);
+                } catch (error) {
+                    console.error('Error executing module script:', error);
+                }
+            });
 
             // Store module info
             const moduleInfo = {
@@ -158,6 +183,9 @@ class ModuleLoader {
     async _initializeModule(moduleName, wrapper) {
         // Look for module initialization function
         const initFunctionName = `init_${moduleName.replace(/[^a-zA-Z0-9]/g, '_')}`;
+
+        console.log(`Looking for init function: ${initFunctionName}`);
+        console.log(`Function exists:`, typeof window[initFunctionName]);
 
         if (typeof window[initFunctionName] === 'function') {
             try {

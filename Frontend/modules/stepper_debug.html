@@ -1,0 +1,841 @@
+<style>
+  /* Stepper Debug Module Specific Styles */
+
+  /* Control Button Grid */
+  .quick-controls-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: var(--spacing-sm);
+    margin-top: var(--spacing-md);
+  }
+
+  .quick-control-btn {
+    padding: var(--spacing-md);
+    font-size: var(--font-size-lg);
+    font-weight: 600;
+    border: 2px solid transparent;
+    transition: all 0.2s ease;
+  }
+
+  .quick-control-btn.positive {
+    background-color: var(--secondary-color);
+    color: white;
+  }
+
+  .quick-control-btn.positive:hover {
+    background-color: #45a049;
+    transform: translateY(-2px);
+  }
+
+  .quick-control-btn.negative {
+    background-color: var(--warning-color);
+    color: white;
+  }
+
+  .quick-control-btn.negative:hover {
+    background-color: #f57c00;
+    transform: translateY(-2px);
+  }
+
+  /* Status Display */
+  .status-display {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-md);
+    padding: var(--spacing-md);
+    background-color: var(--background-color);
+    border-radius: var(--border-radius);
+    margin-bottom: var(--spacing-md);
+  }
+
+  .status-icon {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    animation: pulse 2s ease-in-out infinite;
+  }
+
+  .status-icon.idle {
+    background-color: var(--text-secondary);
+    animation: none;
+  }
+
+  .status-icon.rotating {
+    background-color: var(--secondary-color);
+  }
+
+  .status-icon.completed {
+    background-color: var(--primary-color);
+    animation: none;
+  }
+
+  @keyframes pulse {
+    0%,
+    100% {
+      opacity: 1;
+      transform: scale(1);
+    }
+    50% {
+      opacity: 0.6;
+      transform: scale(1.1);
+    }
+  }
+
+  /* Connection Status */
+  .connection-status {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-sm) var(--spacing-md);
+    background-color: var(--surface-color);
+    border-radius: var(--border-radius);
+    margin-bottom: var(--spacing-md);
+    font-size: var(--font-size-sm);
+  }
+
+  .connection-indicator {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    transition: background-color 0.3s ease;
+  }
+
+  .connection-indicator.connected {
+    background-color: var(--secondary-color);
+  }
+
+  .connection-indicator.disconnected {
+    background-color: var(--error-color);
+  }
+
+  .connection-indicator.reconnecting {
+    background-color: var(--warning-color);
+    animation: pulse 1s ease-in-out infinite;
+  }
+
+  .connection-text {
+    font-weight: 500;
+    color: var(--text-primary);
+  }
+
+  .connection-text.connected {
+    color: var(--secondary-color);
+  }
+
+  .connection-text.disconnected {
+    color: var(--error-color);
+  }
+
+  .connection-text.reconnecting {
+    color: var(--warning-color);
+  }
+
+  .status-text {
+    font-weight: 600;
+    font-size: var(--font-size-lg);
+    color: var(--text-primary);
+  }
+
+  /* Command History */
+  .history-list {
+    max-height: 200px;
+    overflow-y: auto;
+  }
+
+  .history-item {
+    padding: var(--spacing-sm);
+    background-color: var(--surface-color);
+    border-left: 3px solid var(--primary-color);
+    border-radius: var(--border-radius);
+    margin-bottom: var(--spacing-xs);
+    font-size: var(--font-size-sm);
+    animation: slideIn 0.2s ease-out;
+  }
+
+  @keyframes slideIn {
+    from {
+      opacity: 0;
+      transform: translateX(-10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateX(0);
+    }
+  }
+
+  .history-time {
+    color: var(--text-secondary);
+    font-size: var(--font-size-sm);
+  }
+
+  .history-command {
+    font-family: "Courier New", Courier, monospace;
+    color: var(--text-primary);
+    margin-top: var(--spacing-xs);
+  }
+
+  /* Error Display */
+  .error-display {
+    padding: var(--spacing-md);
+    background-color: #ffebee;
+    color: #c62828;
+    border-left: 4px solid var(--error-color);
+    border-radius: var(--border-radius);
+    margin-top: var(--spacing-md);
+    animation: fadeInDown 0.3s ease-out;
+  }
+
+  @keyframes fadeInDown {
+    from {
+      opacity: 0;
+      transform: translateY(-10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  /* Input Group */
+  .input-group {
+    display: flex;
+    gap: var(--spacing-sm);
+    align-items: flex-end;
+  }
+
+  .input-group .module-form-group {
+    flex: 1;
+  }
+
+  /* Input Hint */
+  .input-hint {
+    font-size: var(--font-size-sm);
+    color: var(--text-secondary);
+    margin-top: var(--spacing-xs);
+  }
+
+  /* Input Warning */
+  .input-warning {
+    font-size: var(--font-size-sm);
+    color: var(--warning-color);
+    margin-top: var(--spacing-xs);
+    font-weight: 500;
+  }
+
+  .input-error {
+    font-size: var(--font-size-sm);
+    color: var(--error-color);
+    margin-top: var(--spacing-xs);
+    font-weight: 500;
+  }
+
+  input.warning {
+    border-color: var(--warning-color);
+  }
+
+  input.error {
+    border-color: var(--error-color);
+  }
+
+  /* Responsive Styles */
+  @media (max-width: 768px) {
+    .quick-controls-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .input-group {
+      flex-direction: column;
+      align-items: stretch;
+    }
+
+    .input-group button {
+      width: 100%;
+    }
+  }
+</style>
+
+<!-- Stepper Motor Debug Module -->
+<div class="module-header">
+  <h2 class="module-title">步进电机调试</h2>
+  <div class="module-actions">
+    <button class="btn btn-secondary" id="clear-history-btn">清空历史</button>
+  </div>
+</div>
+
+<div class="module-content">
+  <!-- Connection Status Section -->
+  <div class="connection-status">
+    <div
+      class="connection-indicator disconnected"
+      id="connection-indicator"
+    ></div>
+    <div class="connection-text disconnected" id="connection-text">未连接</div>
+  </div>
+
+  <!-- Status Display Section -->
+  <div class="module-section">
+    <h3 class="module-section-title">电机状态</h3>
+    <div class="status-display">
+      <div class="status-icon idle" id="status-icon"></div>
+      <div class="status-text" id="status-text">空闲</div>
+    </div>
+  </div>
+
+  <!-- Control Section -->
+  <div class="module-section">
+    <h3 class="module-section-title">旋转控制</h3>
+    <form class="module-form" id="rotation-form">
+      <div class="input-group">
+        <div class="module-form-group">
+          <label for="revolutions-input">圈数 (正数=顺时针, 负数=逆时针)</label>
+          <input
+            type="number"
+            id="revolutions-input"
+            placeholder="例如: 1.5 或 -2.0"
+            step="0.1"
+            min="-100"
+            max="100"
+            required
+          />
+          <div class="input-hint" id="input-hint">范围: -100 到 100 圈</div>
+          <div id="input-validation-message"></div>
+        </div>
+        <button type="submit" class="btn btn-primary">执行旋转</button>
+      </div>
+    </form>
+
+    <!-- Quick Control Buttons -->
+    <div class="mt-md">
+      <strong>快捷控制:</strong>
+      <div class="quick-controls-grid">
+        <button class="btn quick-control-btn positive" data-revolutions="1">
+          ↻ +1 圈
+        </button>
+        <button class="btn quick-control-btn negative" data-revolutions="-1">
+          ↺ -1 圈
+        </button>
+        <button class="btn quick-control-btn positive" data-revolutions="0.5">
+          ↻ +0.5 圈
+        </button>
+        <button class="btn quick-control-btn negative" data-revolutions="-0.5">
+          ↺ -0.5 圈
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Command History Section -->
+  <div class="module-section">
+    <h3 class="module-section-title">命令历史</h3>
+    <div class="history-list" id="command-history">
+      <div class="text-muted text-center p-md">暂无命令历史</div>
+    </div>
+  </div>
+
+  <!-- Error Display Section -->
+  <div id="error-container"></div>
+</div>
+
+<script>
+  /**
+   * Stepper Motor Debug Module
+   * Provides interface for controlling stepper motor and monitoring status
+   */
+
+  // Module state
+  let stepperDebugState = {
+    pubsubClient: null,
+    commandHistory: [],
+    maxHistoryItems: 10,
+    currentStatus: "idle",
+    isConnected: false,
+    minRevolutions: -100,
+    maxRevolutions: 100,
+  };
+
+  /**
+   * Initialize the stepper debug module
+   * This function is called by the module loader
+   */
+  function init_stepper_debug(pubsubClient) {
+    console.log("Initializing Stepper Debug module...");
+
+    stepperDebugState.pubsubClient = pubsubClient;
+
+    // Subscribe to motor status and error topics
+    pubsubClient.subscribe("motor/status", handleStatusUpdate);
+    pubsubClient.subscribe("motor/error", handleError);
+
+    // Set up event listeners
+    setupRotationForm();
+    setupQuickControls();
+    setupClearHistoryButton();
+    setupConnectionMonitoring();
+
+    console.log("Stepper Debug module initialized");
+    console.log("PubSubClient connected:", pubsubClient.isConnected());
+  }
+
+  /**
+   * Setup rotation form handler
+   */
+  function setupRotationForm() {
+    const form = document.getElementById("rotation-form");
+    const input = document.getElementById("revolutions-input");
+
+    // Add real-time validation on input
+    input.addEventListener("input", () => {
+      validateInput(input);
+    });
+
+    form.addEventListener("submit", (e) => {
+      e.preventDefault();
+
+      const revolutions = parseFloat(input.value);
+
+      // Validate input
+      if (isNaN(revolutions)) {
+        showInputValidationMessage("请输入有效的数字", "error");
+        return;
+      }
+
+      // Validate range
+      if (!isWithinRange(revolutions)) {
+        showInputValidationMessage(
+          `圈数超出范围！请输入 ${stepperDebugState.minRevolutions} 到 ${stepperDebugState.maxRevolutions} 之间的值`,
+          "error"
+        );
+        return;
+      }
+
+      // Send rotation command
+      sendRotateCommand(revolutions);
+
+      // Clear input and validation message
+      input.value = "";
+      clearInputValidationMessage();
+      input.classList.remove("warning", "error");
+    });
+  }
+
+  /**
+   * Setup quick control buttons
+   */
+  function setupQuickControls() {
+    const buttons = document.querySelectorAll(".quick-control-btn");
+
+    buttons.forEach((button) => {
+      button.addEventListener("click", () => {
+        const revolutions = parseFloat(button.dataset.revolutions);
+        sendRotateCommand(revolutions);
+      });
+    });
+  }
+
+  /**
+   * Validate if value is within allowed range
+   */
+  function isWithinRange(value) {
+    return (
+      value >= stepperDebugState.minRevolutions &&
+      value <= stepperDebugState.maxRevolutions
+    );
+  }
+
+  /**
+   * Validate input field value
+   */
+  function validateInput(input) {
+    const value = parseFloat(input.value);
+
+    // Clear previous validation state
+    input.classList.remove("warning", "error");
+    clearInputValidationMessage();
+
+    // Check if empty
+    if (input.value === "") {
+      return;
+    }
+
+    // Check if valid number
+    if (isNaN(value)) {
+      input.classList.add("error");
+      showInputValidationMessage("请输入有效的数字", "error");
+      return;
+    }
+
+    // Check if within range
+    if (!isWithinRange(value)) {
+      input.classList.add("error");
+      showInputValidationMessage(
+        `超出范围！请输入 ${stepperDebugState.minRevolutions} 到 ${stepperDebugState.maxRevolutions} 之间的值`,
+        "error"
+      );
+      return;
+    }
+
+    // Valid input
+    input.classList.remove("warning", "error");
+  }
+
+  /**
+   * Show input validation message
+   */
+  function showInputValidationMessage(message, type = "warning") {
+    const container = document.getElementById("input-validation-message");
+    const className = type === "error" ? "input-error" : "input-warning";
+
+    container.innerHTML = `<div class="${className}">${message}</div>`;
+  }
+
+  /**
+   * Clear input validation message
+   */
+  function clearInputValidationMessage() {
+    const container = document.getElementById("input-validation-message");
+    container.innerHTML = "";
+  }
+
+  /**
+   * Send rotation command to motor
+   */
+  function sendRotateCommand(revolutions) {
+    if (!stepperDebugState.isConnected) {
+      showError("WebSocket未连接，无法发送命令");
+      return;
+    }
+
+    // Double-check range before sending
+    if (!isWithinRange(revolutions)) {
+      showError(
+        `圈数超出范围！允许范围: ${stepperDebugState.minRevolutions} 到 ${stepperDebugState.maxRevolutions}`
+      );
+      return;
+    }
+
+    // Publish to motor/rotate topic
+    const success = stepperDebugState.pubsubClient.publish(
+      "motor/rotate",
+      revolutions.toString()
+    );
+
+    if (success) {
+      // Add to command history
+      addToHistory(revolutions);
+      console.log(`Sent rotation command: ${revolutions} revolutions`);
+    } else {
+      showError("发送命令失败");
+    }
+  }
+
+  /**
+   * Handle status update from motor
+   */
+  function handleStatusUpdate(topic, payload) {
+    console.log(`Status update: ${payload}`);
+
+    stepperDebugState.currentStatus = payload;
+
+    // Update status display
+    const statusIcon = document.getElementById("status-icon");
+    const statusText = document.getElementById("status-text");
+
+    // Remove all status classes
+    statusIcon.classList.remove("idle", "rotating", "completed");
+
+    // Map status to display
+    let displayText = "";
+    let statusClass = "";
+
+    switch (payload.toLowerCase()) {
+      case "idle":
+        displayText = "空闲";
+        statusClass = "idle";
+        break;
+      case "rotating":
+        displayText = "旋转中";
+        statusClass = "rotating";
+        break;
+      case "completed":
+        displayText = "完成";
+        statusClass = "completed";
+        break;
+      default:
+        displayText = payload;
+        statusClass = "idle";
+    }
+
+    statusIcon.classList.add(statusClass);
+    statusText.textContent = displayText;
+  }
+
+  /**
+   * Handle error from motor
+   */
+  function handleError(topic, payload) {
+    console.error(`Motor error: ${payload}`);
+    showError(payload);
+  }
+
+  /**
+   * Show error message
+   */
+  function showError(message) {
+    const container = document.getElementById("error-container");
+
+    container.innerHTML = `
+      <div class="error-display">
+        <strong>错误:</strong> ${message}
+      </div>
+    `;
+
+    // Auto-hide after 5 seconds
+    setTimeout(() => {
+      container.innerHTML = "";
+    }, 5000);
+  }
+
+  /**
+   * Add command to history
+   */
+  function addToHistory(revolutions) {
+    const historyItem = {
+      revolutions: revolutions,
+      timestamp: new Date(),
+    };
+
+    stepperDebugState.commandHistory.unshift(historyItem);
+
+    // Limit history size
+    if (
+      stepperDebugState.commandHistory.length >
+      stepperDebugState.maxHistoryItems
+    ) {
+      stepperDebugState.commandHistory.pop();
+    }
+
+    // Update display
+    updateHistoryDisplay();
+  }
+
+  /**
+   * Update command history display
+   */
+  function updateHistoryDisplay() {
+    const container = document.getElementById("command-history");
+
+    if (stepperDebugState.commandHistory.length === 0) {
+      container.innerHTML =
+        '<div class="text-muted text-center p-md">暂无命令历史</div>';
+      return;
+    }
+
+    container.innerHTML = "";
+
+    stepperDebugState.commandHistory.forEach((item) => {
+      const historyItem = document.createElement("div");
+      historyItem.className = "history-item";
+
+      const timeDiv = document.createElement("div");
+      timeDiv.className = "history-time";
+      timeDiv.textContent = formatTimestamp(item.timestamp);
+
+      const commandDiv = document.createElement("div");
+      commandDiv.className = "history-command";
+      const direction = item.revolutions >= 0 ? "顺时针" : "逆时针";
+      commandDiv.textContent = `${direction} ${Math.abs(item.revolutions)} 圈`;
+
+      historyItem.appendChild(timeDiv);
+      historyItem.appendChild(commandDiv);
+      container.appendChild(historyItem);
+    });
+  }
+
+  /**
+   * Format timestamp for display
+   */
+  function formatTimestamp(date) {
+    const hours = String(date.getHours()).padStart(2, "0");
+    const minutes = String(date.getMinutes()).padStart(2, "0");
+    const seconds = String(date.getSeconds()).padStart(2, "0");
+    return `${hours}:${minutes}:${seconds}`;
+  }
+
+  /**
+   * Setup clear history button
+   */
+  function setupClearHistoryButton() {
+    const clearBtn = document.getElementById("clear-history-btn");
+
+    clearBtn.addEventListener("click", () => {
+      stepperDebugState.commandHistory = [];
+      updateHistoryDisplay();
+      console.log("Command history cleared");
+    });
+  }
+
+  /**
+   * Setup connection monitoring
+   */
+  function setupConnectionMonitoring() {
+    // Check initial connection state
+    console.log("Setting up connection monitoring...");
+    console.log("PubSubClient object:", stepperDebugState.pubsubClient);
+
+    stepperDebugState.isConnected =
+      stepperDebugState.pubsubClient.isConnected();
+
+    console.log("Initial connection state:", stepperDebugState.isConnected);
+
+    // Update UI to reflect current connection state immediately
+    const currentStatus = stepperDebugState.isConnected
+      ? "connected"
+      : "disconnected";
+    console.log("Setting initial status to:", currentStatus);
+    updateConnectionStatus(currentStatus);
+
+    if (stepperDebugState.isConnected) {
+      console.log("Enabling controls (connected)");
+      enableControls();
+    } else {
+      console.log("Disabling controls (disconnected)");
+      disableControls();
+    }
+
+    // Register status change handler with PubSubClient
+    stepperDebugState.pubsubClient.onStatusChange((status) => {
+      console.log(`Connection status changed: ${status}`);
+      handleConnectionStatusChange(status);
+    });
+
+    // Also poll connection state as backup
+    setInterval(() => {
+      const wasConnected = stepperDebugState.isConnected;
+      stepperDebugState.isConnected =
+        stepperDebugState.pubsubClient.isConnected();
+
+      if (wasConnected && !stepperDebugState.isConnected) {
+        console.log("Connection lost (detected by polling)");
+        handleConnectionStatusChange("disconnected");
+      } else if (!wasConnected && stepperDebugState.isConnected) {
+        console.log("Connection restored (detected by polling)");
+        handleConnectionStatusChange("connected");
+      }
+    }, 1000);
+  }
+
+  /**
+   * Handle connection status change
+   */
+  function handleConnectionStatusChange(status) {
+    stepperDebugState.isConnected = status === "connected";
+
+    updateConnectionStatus(status);
+
+    if (status === "connected") {
+      enableControls();
+    } else {
+      disableControls();
+    }
+  }
+
+  /**
+   * Update connection status display
+   */
+  function updateConnectionStatus(status) {
+    const indicator = document.getElementById("connection-indicator");
+    const text = document.getElementById("connection-text");
+
+    // Remove all status classes
+    indicator.classList.remove("connected", "disconnected", "reconnecting");
+    text.classList.remove("connected", "disconnected", "reconnecting");
+
+    // Map status to display
+    let displayText = "";
+    let statusClass = "";
+
+    switch (status) {
+      case "connected":
+        displayText = "已连接";
+        statusClass = "connected";
+        break;
+      case "disconnected":
+        displayText = "未连接";
+        statusClass = "disconnected";
+        break;
+      case "reconnecting":
+        displayText = "重新连接中...";
+        statusClass = "reconnecting";
+        break;
+      case "error":
+        displayText = "连接错误";
+        statusClass = "disconnected";
+        break;
+      default:
+        displayText = status;
+        statusClass = "disconnected";
+    }
+
+    indicator.classList.add(statusClass);
+    text.classList.add(statusClass);
+    text.textContent = displayText;
+  }
+
+  /**
+   * Disable controls when disconnected
+   */
+  function disableControls() {
+    const form = document.getElementById("rotation-form");
+    const buttons = document.querySelectorAll(".quick-control-btn");
+    const input = document.getElementById("revolutions-input");
+    const submitBtn = form.querySelector('button[type="submit"]');
+
+    input.disabled = true;
+    submitBtn.disabled = true;
+
+    buttons.forEach((button) => {
+      button.disabled = true;
+      button.style.opacity = "0.5";
+      button.style.cursor = "not-allowed";
+    });
+
+    console.log("Controls disabled due to disconnection");
+  }
+
+  /**
+   * Enable controls when connected
+   */
+  function enableControls() {
+    const form = document.getElementById("rotation-form");
+    const buttons = document.querySelectorAll(".quick-control-btn");
+    const input = document.getElementById("revolutions-input");
+    const submitBtn = form.querySelector('button[type="submit"]');
+
+    input.disabled = false;
+    submitBtn.disabled = false;
+
+    buttons.forEach((button) => {
+      button.disabled = false;
+      button.style.opacity = "1";
+      button.style.cursor = "pointer";
+    });
+
+    console.log("Controls enabled after connection");
+  }
+
+  /**
+   * Cleanup function (called when module is unloaded)
+   */
+  function cleanup_stepper_debug() {
+    console.log("Cleaning up Stepper Debug module...");
+
+    // Unsubscribe from topics
+    stepperDebugState.pubsubClient.unsubscribe("motor/status");
+    stepperDebugState.pubsubClient.unsubscribe("motor/error");
+
+    // Clear state
+    stepperDebugState.commandHistory = [];
+
+    console.log("Stepper Debug module cleaned up");
+  }
+</script>
