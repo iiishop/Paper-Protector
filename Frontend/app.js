@@ -23,17 +23,29 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Register status change handler
     pubsubClient.onStatusChange((status) => {
-        updateConnectionStatus(status);
+        // Only update UI for non-connected states from WS (like error/disconnected)
+        // Connected state will be handled by Serial status
+        if (status !== 'connected') {
+            updateConnectionStatus(status);
+        }
 
-        // Auto-load modules when connected
         if (status === 'connected') {
+            // Load all modules simultaneously
             if (!moduleLoader.isModuleLoaded('serial_monitor')) {
                 loadSerialMonitor();
             }
             if (!moduleLoader.isModuleLoaded('stepper_debug')) {
                 loadStepperDebug();
             }
+            if (!moduleLoader.isModuleLoaded('fan_control')) {
+                loadFanControl();
+            }
         }
+    });
+
+    // Register Serial status change handler
+    pubsubClient.onSerialStatusChange((status) => {
+        updateConnectionStatus(status);
     });
 
     // Connect to WebSocket
@@ -50,16 +62,19 @@ document.addEventListener('DOMContentLoaded', () => {
  * Register available modules
  */
 function registerModules() {
-    // Register Serial Monitor module
     moduleLoader.registerModule('serial_monitor', {
         path: 'modules/serial_monitor.html',
         title: '串口监视器'
     });
 
-    // Register Stepper Motor Debug module
     moduleLoader.registerModule('stepper_debug', {
         path: 'modules/stepper_debug.html',
         title: '步进电机调试'
+    });
+
+    moduleLoader.registerModule('fan_control', {
+        path: 'modules/fan_control.html',
+        title: '风扇控制'
     });
 
     console.log('Modules registered');
@@ -90,6 +105,17 @@ async function loadStepperDebug() {
         console.log('Stepper Debug module loaded');
     } else {
         console.error('Failed to load Stepper Debug module');
+    }
+}
+
+async function loadFanControl() {
+    console.log('Loading Fan Control module...');
+    const success = await moduleLoader.loadModule('fan_control', 'module-container');
+
+    if (success) {
+        console.log('Fan Control module loaded');
+    } else {
+        console.error('Failed to load Fan Control module');
     }
 }
 

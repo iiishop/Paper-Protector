@@ -8,8 +8,10 @@ class PubSubClient {
         this.ws = null;
         this.subscriptions = new Map(); // topic -> Set of callbacks
         this.statusHandlers = [];
+        this.serialStatusHandlers = [];
         this.messageHandlers = [];
         this.connected = false;
+        this.serialConnected = false;
         this.reconnectAttempts = 0;
         this.maxReconnectDelay = 30000; // 30 seconds
         this.baseReconnectDelay = 1000; // 1 second
@@ -146,10 +148,27 @@ class PubSubClient {
     }
 
     /**
+     * Register a serial status change handler
+     * @param {function} handler - Handler function(status)
+     */
+    onSerialStatusChange(handler) {
+        this.serialStatusHandlers.push(handler);
+    }
+
+    /**
      * Handle incoming message
      * @private
      */
     _handleMessage(message) {
+        // Handle status messages
+        if (message.type === 'status') {
+            const isConnected = message.status === 'connected';
+            if (this.serialConnected !== isConnected) {
+                this.serialConnected = isConnected;
+                this._notifySerialStatusChange(message.status);
+            }
+        }
+
         // Notify global message handlers
         this.messageHandlers.forEach(handler => {
             try {
@@ -182,6 +201,20 @@ class PubSubClient {
                 handler(status);
             } catch (error) {
                 console.error('Error in status handler:', error);
+            }
+        });
+    }
+
+    /**
+     * Notify serial status change handlers
+     * @private
+     */
+    _notifySerialStatusChange(status) {
+        this.serialStatusHandlers.forEach(handler => {
+            try {
+                handler(status);
+            } catch (error) {
+                console.error('Error in serial status handler:', error);
             }
         });
     }

@@ -1,0 +1,285 @@
+<link rel="stylesheet" href="../styles/fan_control.css" />
+
+<div class="module-header">
+  <h2 class="module-title">风扇控制</h2>
+</div>
+
+<div class="module-content">
+  <div class="module-section fan-status-section">
+    <h3 class="module-section-title">风扇状态</h3>
+    <div class="status-display">
+      <div class="status-icon stopped" id="fan-status-icon"></div>
+      <div class="status-text" id="fan-status-text">停止</div>
+    </div>
+
+    <div class="speed-display-grid">
+      <div class="speed-display-item">
+        <div class="speed-display-label">当前速度</div>
+        <div class="speed-display-value" id="current-speed-display">0</div>
+      </div>
+      <div class="speed-display-item">
+        <div class="speed-display-label">速度百分比</div>
+        <div class="speed-display-value" id="speed-percentage-display">0%</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="module-section fan-control-section">
+    <h3 class="module-section-title">速度控制</h3>
+    <form class="module-form" id="fan-control-form">
+      <div class="module-form-group">
+        <label for="speed-slider">速度滑块 (0-255)</label>
+        <div class="speed-slider-container">
+          <input
+            type="range"
+            id="speed-slider"
+            class="speed-slider"
+            min="0"
+            max="255"
+            value="0"
+          />
+          <div class="speed-value-display" id="slider-value-display">0</div>
+        </div>
+      </div>
+
+      <div class="speed-control-group">
+        <div class="module-form-group">
+          <label for="speed-input">速度数值</label>
+          <input
+            type="number"
+            id="speed-input"
+            min="0"
+            max="255"
+            value="0"
+            placeholder="0-255"
+          />
+        </div>
+        <button type="submit" class="btn btn-primary fan-control-form-submit">
+          设置速度
+        </button>
+      </div>
+    </form>
+
+    <div class="mt-md">
+      <strong>快捷控制:</strong>
+      <div class="quick-buttons-grid">
+        <button class="btn btn-secondary quick-btn" data-speed="0">
+          停止 (0)
+        </button>
+        <button class="btn btn-primary quick-btn" data-speed="64">
+          低速 (64)
+        </button>
+        <button class="btn btn-primary quick-btn" data-speed="128">
+          中速 (128)
+        </button>
+        <button class="btn btn-primary quick-btn" data-speed="192">
+          高速 (192)
+        </button>
+        <button class="btn btn-primary quick-btn" data-speed="255">
+          最大 (255)
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div id="error-container"></div>
+</div>
+
+<script>
+  let fanControlState = {
+    pubsubClient: null,
+    currentSpeed: 0,
+  };
+
+  function init_fan_control(pubsubClient) {
+    console.log("Initializing Fan Control module...");
+
+    fanControlState.pubsubClient = pubsubClient;
+
+    pubsubClient.subscribe("fan/status", handleStatusUpdate);
+    pubsubClient.subscribe("fan/error", handleError);
+
+    setupControlForm();
+    setupSlider();
+    setupQuickButtons();
+
+    pubsubClient.publish("fan/query", "");
+
+    console.log("Fan Control module initialized");
+  }
+
+  function setupControlForm() {
+    const form = document.getElementById("fan-control-form");
+    const speedInput = document.getElementById("speed-input");
+
+    form.addEventListener("submit", (e) => {
+      e.preventDefault();
+
+      const speed = parseInt(speedInput.value);
+
+      if (!validateSpeed(speed)) {
+        return;
+      }
+
+      sendSpeedCommand(speed);
+    });
+
+    speedInput.addEventListener("input", () => {
+      const speed = parseInt(speedInput.value);
+      if (!isNaN(speed)) {
+        const constrainedSpeed = Math.max(0, Math.min(255, speed));
+        if (speed !== constrainedSpeed) {
+          speedInput.value = constrainedSpeed;
+        }
+      }
+    });
+  }
+
+  function setupSlider() {
+    const slider = document.getElementById("speed-slider");
+    const sliderDisplay = document.getElementById("slider-value-display");
+    const speedInput = document.getElementById("speed-input");
+
+    slider.addEventListener("input", () => {
+      const value = parseInt(slider.value);
+      sliderDisplay.textContent = value;
+      speedInput.value = value;
+    });
+
+    slider.addEventListener("change", () => {
+      const speed = parseInt(slider.value);
+      sendSpeedCommand(speed);
+    });
+  }
+
+  function setupQuickButtons() {
+    const buttons = document.querySelectorAll(".quick-btn");
+
+    buttons.forEach((button) => {
+      button.addEventListener("click", () => {
+        const speed = parseInt(button.dataset.speed);
+        sendSpeedCommand(speed);
+
+        const slider = document.getElementById("speed-slider");
+        const sliderDisplay = document.getElementById("slider-value-display");
+        const speedInput = document.getElementById("speed-input");
+
+        slider.value = speed;
+        sliderDisplay.textContent = speed;
+        speedInput.value = speed;
+      });
+    });
+  }
+
+  function validateSpeed(speed) {
+    if (isNaN(speed)) {
+      showError("请输入有效的数字");
+      return false;
+    }
+
+    if (speed < 0 || speed > 255) {
+      showError("速度值必须在0到255之间");
+      return false;
+    }
+
+    return true;
+  }
+
+  function sendSpeedCommand(speed) {
+    const constrainedSpeed = Math.max(0, Math.min(255, speed));
+
+    const success = fanControlState.pubsubClient.publish(
+      "fan/speed",
+      constrainedSpeed.toString()
+    );
+
+    if (!success) {
+      showError("发送失败: WebSocket未连接");
+    }
+  }
+
+  function handleStatusUpdate(topic, payload) {
+    console.log(`Fan status update: ${payload}`);
+
+    const parts = payload.split(":");
+    if (parts.length !== 2) {
+      return;
+    }
+
+    const status = parts[0];
+    const speed = parseInt(parts[1]);
+
+    if (isNaN(speed)) {
+      return;
+    }
+
+    fanControlState.currentSpeed = speed;
+
+    updateSpeedDisplay(speed);
+    updateStatusIndicator(status);
+  }
+
+  function updateSpeedDisplay(speed) {
+    const currentSpeedDisplay = document.getElementById(
+      "current-speed-display"
+    );
+    const percentageDisplay = document.getElementById(
+      "speed-percentage-display"
+    );
+    const slider = document.getElementById("speed-slider");
+    const sliderDisplay = document.getElementById("slider-value-display");
+    const speedInput = document.getElementById("speed-input");
+
+    currentSpeedDisplay.textContent = speed;
+
+    const percentage = Math.round((speed / 255) * 100);
+    percentageDisplay.textContent = `${percentage}%`;
+
+    slider.value = speed;
+    sliderDisplay.textContent = speed;
+    speedInput.value = speed;
+  }
+
+  function updateStatusIndicator(status) {
+    const statusIcon = document.getElementById("fan-status-icon");
+    const statusText = document.getElementById("fan-status-text");
+
+    statusIcon.classList.remove("stopped", "running");
+
+    if (status === "stopped") {
+      statusIcon.classList.add("stopped");
+      statusText.textContent = "停止";
+    } else if (status === "running") {
+      statusIcon.classList.add("running");
+      statusText.textContent = "运行中";
+    }
+  }
+
+  function handleError(topic, payload) {
+    console.error(`Fan error: ${payload}`);
+    showError(payload);
+  }
+
+  function showError(message) {
+    const container = document.getElementById("error-container");
+
+    container.innerHTML = `
+      <div class="error-display">
+        <strong>错误:</strong> ${message}
+      </div>
+    `;
+
+    setTimeout(() => {
+      container.innerHTML = "";
+    }, 5000);
+  }
+
+  function cleanup_fan_control() {
+    console.log("Cleaning up Fan Control module...");
+
+    fanControlState.pubsubClient.unsubscribe("fan/status");
+    fanControlState.pubsubClient.unsubscribe("fan/error");
+
+    console.log("Fan Control module cleaned up");
+  }
+</script>

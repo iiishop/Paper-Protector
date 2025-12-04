@@ -79,8 +79,7 @@ class ModuleLoader {
             // Set the HTML without scripts
             moduleWrapper.innerHTML = tempDiv.innerHTML;
 
-            // Clear container and add module
-            container.innerHTML = '';
+            // Add module to container (append instead of replace)
             container.appendChild(moduleWrapper);
 
             // Execute scripts in order
