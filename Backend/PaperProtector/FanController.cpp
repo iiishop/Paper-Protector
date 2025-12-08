@@ -1,83 +1,97 @@
 #include "FanController.h"
 
-FanController* FanController::_instance = nullptr;
+FanController *FanController::_instance = nullptr;
 
-FanController::FanController(SerialPubSub* pubsub, int fanPin) 
-    : _pubsub(pubsub), _fanPin(fanPin), _currentSpeed(0) {
+FanController::FanController(SerialPubSub *pubsub, int fanPin)
+    : _pubsub(pubsub), _fanPin(fanPin), _currentSpeed(0)
+{
     _instance = this;
 }
 
-void FanController::begin() {
+void FanController::begin()
+{
     pinMode(_fanPin, OUTPUT);
     analogWrite(_fanPin, 0);
-    
+
     _pubsub->subscribe("fan/speed", speedCallback);
     _pubsub->subscribe("fan/query", queryCallback);
 }
 
-void FanController::loop() {
+void FanController::loop()
+{
 }
 
-int FanController::constrainSpeed(int speed) {
-    if (speed < 0) return 0;
-    if (speed > 255) return 255;
+int FanController::constrainSpeed(int speed)
+{
+    if (speed < 0)
+        return 0;
+    if (speed > 255)
+        return 255;
     return speed;
 }
 
-void FanController::setSpeed(int speed) {
+void FanController::setSpeed(int speed)
+{
     int constrainedSpeed = constrainSpeed(speed);
     applySpeed(constrainedSpeed);
 }
 
-void FanController::applySpeed(int speed) {
+void FanController::applySpeed(int speed)
+{
     _currentSpeed = speed;
     analogWrite(_fanPin, speed);
     publishStatus();
 }
 
-int FanController::getCurrentSpeed() const {
+int FanController::getCurrentSpeed() const
+{
     return _currentSpeed;
 }
 
-void FanController::publishStatus() {
-    char statusMsg[32];
-    if (_currentSpeed == 0) {
-        sprintf(statusMsg, "stopped:0");
-    } else {
-        sprintf(statusMsg, "running:%d", _currentSpeed);
-    }
+void FanController::publishStatus()
+{
+    char statusMsg[16];
+    sprintf(statusMsg, "%d", _currentSpeed);
     _pubsub->publish("fan/status", statusMsg);
 }
 
-void FanController::publishError(const char* error) {
+void FanController::publishError(const char *error)
+{
     _pubsub->publish("fan/error", error);
 }
 
-void FanController::publishCurrentStatus() {
+void FanController::publishCurrentStatus()
+{
     publishStatus();
 }
 
-void FanController::speedCallback(const char* topic, const char* payload) {
-    if (_instance == nullptr) return;
-    
-    if (payload == nullptr || payload[0] == '\0') {
-        _instance->publishError("Empty speed value");
+void FanController::speedCallback(const char *topic, const char *payload)
+{
+    if (_instance == nullptr)
+        return;
+
+    if (payload == nullptr || payload[0] == '\0')
+    {
+        _instance->publishError("Empty");
         return;
     }
-    
-    char* endPtr;
+
+    char *endPtr;
     long speed = strtol(payload, &endPtr, 10);
-    
-    if (*endPtr != '\0') {
-        _instance->publishError("Invalid speed format");
+
+    if (*endPtr != '\0')
+    {
+        _instance->publishError("Invalid");
         return;
     }
-    
+
     _instance->setSpeed((int)speed);
 }
 
-void FanController::queryCallback(const char* topic, const char* payload) {
-    if (_instance == nullptr) return;
-    
+void FanController::queryCallback(const char *topic, const char *payload)
+{
+    if (_instance == nullptr)
+        return;
+
     _instance->publishCurrentStatus();
 }

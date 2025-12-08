@@ -124,6 +124,22 @@ class PubSubClient {
         try {
             this.ws.send(JSON.stringify(message));
             console.log(`Published to ${topic}:`, payload);
+
+            // 通知全局消息处理器（用于调试面板显示发送的消息）
+            this.messageHandlers.forEach(handler => {
+                try {
+                    handler({
+                        type: 'message',
+                        topic: topic,
+                        payload: String(payload),
+                        source: 'user',
+                        direction: 'sent'
+                    });
+                } catch (error) {
+                    console.error('Error in message handler:', error);
+                }
+            });
+
             return true;
         } catch (error) {
             console.error('Failed to publish message:', error);

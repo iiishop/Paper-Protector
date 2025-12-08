@@ -94,6 +94,61 @@
 }
 
 /* ========================================
+   LED Status Indicator
+   ======================================== */
+
+.led-status-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--spacing-md);
+  background-color: var(--background-color);
+  border-radius: var(--border-radius);
+  margin-bottom: var(--spacing-md);
+}
+
+.led-indicator {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+
+.led-icon {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  transition: all 0.3s ease;
+}
+
+.led-icon.active {
+  background-color: #4CAF50;
+  box-shadow: 0 0 10px rgba(76, 175, 80, 0.6);
+  animation: pulse 1.5s infinite;
+}
+
+.led-icon.inactive {
+  background-color: #9E9E9E;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+    box-shadow: 0 0 10px rgba(76, 175, 80, 0.6);
+  }
+  50% {
+    opacity: 0.5;
+    box-shadow: 0 0 5px rgba(76, 175, 80, 0.3);
+  }
+}
+
+.led-text {
+  font-size: var(--font-size-base);
+  font-weight: 500;
+  color: var(--text-primary);
+  transition: color 0.3s ease;
+}
+
+/* ========================================
    Control Buttons
    ======================================== */
 

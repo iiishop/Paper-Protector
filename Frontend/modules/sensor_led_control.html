@@ -1,0 +1,274 @@
+<div class="module" id="sensor-led-module">
+    <div class="module-header">
+        <h2>传感器板载 LED</h2>
+        <button class="close-btn" onclick="window.moduleLoader.closeModule('sensor-led-module')">×</button>
+    </div>
+    <div class="module-body">
+        <div class="led-controls">
+            <div class="led-status-container">
+                <div class="led-indicator" id="sensor-led-indicator">
+                    <div class="led-light"></div>
+                </div>
+                <div class="status-text" id="sensor-led-status-text">未知状态</div>
+            </div>
+
+            <div class="control-buttons">
+                <button class="btn btn-success" onclick="sensorLedControl.turnOn()">
+                    <span>💡</span> 打开
+                </button>
+                <button class="btn btn-danger" onclick="sensorLedControl.turnOff()">
+                    <span>⚫</span> 关闭
+                </button>
+            </div>
+        </div>
+
+        <div class="info-section">
+            <h3>引脚信息</h3>
+            <div class="info-grid">
+                <div class="info-item">
+                    <label>控制引脚:</label>
+                    <span>D7</span>
+                </div>
+                <div class="info-item">
+                    <label>LED类型:</label>
+                    <span>AS7341板载白光LED</span>
+                </div>
+                <div class="info-item">
+                    <label>当前状态:</label>
+                    <span id="sensor-led-current-state">-</span>
+                </div>
+                <div class="info-item">
+                    <label>最后更新:</label>
+                    <span id="sensor-led-last-update">-</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    #sensor-led-module {
+        min-width: 350px;
+    }
+
+    .led-controls {
+        display: flex;
+        flex-direction: column;
+        gap: 24px;
+        padding: 20px;
+    }
+
+    .led-status-container {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 16px;
+        padding: 24px;
+        background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+        border-radius: 12px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+
+    .led-indicator {
+        width: 80px;
+        height: 80px;
+        border-radius: 50%;
+        background: #2d3748;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.3);
+    }
+
+    .led-light {
+        width: 60px;
+        height: 60px;
+        border-radius: 50%;
+        background: #4a5568;
+        transition: all 0.3s ease;
+        box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+    }
+
+    .led-indicator.on .led-light {
+        background: #fbbf24;
+        box-shadow: 0 0 20px #fbbf24, 0 0 40px #fbbf24, inset 0 0 10px #ffd700;
+        animation: glow 2s infinite;
+    }
+
+    @keyframes glow {
+
+        0%,
+        100% {
+            box-shadow: 0 0 20px #fbbf24, 0 0 40px #fbbf24, inset 0 0 10px #ffd700;
+        }
+
+        50% {
+            box-shadow: 0 0 30px #fbbf24, 0 0 60px #fbbf24, inset 0 0 15px #ffd700;
+        }
+    }
+
+    .status-text {
+        font-size: 18px;
+        font-weight: 600;
+        color: white;
+        text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    }
+
+    .control-buttons {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 12px;
+    }
+
+    .btn {
+        padding: 14px 24px;
+        font-size: 16px;
+        font-weight: 600;
+        border: none;
+        border-radius: 8px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+    }
+
+    .btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+    }
+
+    .btn:active {
+        transform: translateY(0);
+    }
+
+    .btn-success {
+        background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+        color: white;
+    }
+
+    .btn-success:hover {
+        background: linear-gradient(135deg, #059669 0%, #047857 100%);
+    }
+
+    .btn-danger {
+        background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+        color: white;
+    }
+
+    .btn-danger:hover {
+        background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+    }
+
+    .info-section {
+        padding: 16px;
+        background: #f7fafc;
+        border-radius: 8px;
+    }
+
+    .info-section h3 {
+        margin: 0 0 12px 0;
+        font-size: 14px;
+        color: #4a5568;
+        font-weight: 600;
+    }
+
+    .info-grid {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    .info-item {
+        display: flex;
+        justify-content: space-between;
+        padding: 8px;
+        background: white;
+        border-radius: 4px;
+        font-size: 14px;
+    }
+
+    .info-item label {
+        color: #718096;
+        font-weight: 500;
+    }
+
+    .info-item span {
+        color: #2d3748;
+        font-weight: 600;
+    }
+</style>
+
+<script>
+    const sensorLedControl = {
+        ledState: false,
+
+        init() {
+            console.log('Sensor LED Control: 初始化...');
+
+            // 订阅状态消息(注意:回调函数接收 topic 和 payload 两个参数)
+            window.pubsubClient.subscribe('sensor_led/status', (topic, payload) => {
+                console.log('Sensor LED: 收到状态消息:', payload);
+                this.updateStatus(payload);
+            });
+
+            // 延迟请求初始状态
+            setTimeout(() => {
+                console.log('Sensor LED: 请求初始状态...');
+                this.requestStatus();
+            }, 500);
+        },
+
+        turnOn() {
+            window.pubsubClient.publish('sensor_led/control', 'on');
+            console.log('Sensor LED: 发送打开命令');
+        },
+
+        turnOff() {
+            window.pubsubClient.publish('sensor_led/control', 'off');
+            console.log('Sensor LED: 发送关闭命令');
+        },
+
+        requestStatus() {
+            window.pubsubClient.publish('sensor_led/get', '');
+        },
+
+        updateStatus(payload) {
+            const state = payload.toLowerCase();
+            this.ledState = (state === 'on' || state === '1' || state === 'true');
+
+            const indicator = document.getElementById('sensor-led-indicator');
+            const statusText = document.getElementById('sensor-led-status-text');
+            const currentState = document.getElementById('sensor-led-current-state');
+            const lastUpdate = document.getElementById('sensor-led-last-update');
+
+            if (this.ledState) {
+                indicator.classList.add('on');
+                statusText.textContent = '板载 LED 已打开';
+                currentState.textContent = '开启';
+                currentState.style.color = '#10b981';
+            } else {
+                indicator.classList.remove('on');
+                statusText.textContent = '板载 LED 已关闭';
+                currentState.textContent = '关闭';
+                currentState.style.color = '#6b7280';
+            }
+
+            // 更新时间
+            const now = new Date();
+            lastUpdate.textContent = now.toLocaleTimeString('zh-CN');
+
+            console.log(`Sensor LED 状态更新: ${this.ledState ? '开启' : '关闭'}`);
+        }
+    };
+
+    // 初始化
+    if (window.pubsubClient && window.pubsubClient.isConnected()) {
+        sensorLedControl.init();
+    } else {
+        window.addEventListener('pubsub-connected', () => {
+            sensorLedControl.init();
+        });
+    }
+</script>

@@ -30,14 +30,7 @@
       <div class="module-form-group">
         <label for="speed-slider">速度滑块 (0-255)</label>
         <div class="speed-slider-container">
-          <input
-            type="range"
-            id="speed-slider"
-            class="speed-slider"
-            min="0"
-            max="255"
-            value="0"
-          />
+          <input type="range" id="speed-slider" class="speed-slider" min="0" max="255" value="0" />
           <div class="speed-value-display" id="slider-value-display">0</div>
         </div>
       </div>
@@ -45,14 +38,7 @@
       <div class="speed-control-group">
         <div class="module-form-group">
           <label for="speed-input">速度数值</label>
-          <input
-            type="number"
-            id="speed-input"
-            min="0"
-            max="255"
-            value="0"
-            placeholder="0-255"
-          />
+          <input type="number" id="speed-input" min="0" max="255" value="0" placeholder="0-255" />
         </div>
         <button type="submit" class="btn btn-primary fan-control-form-submit">
           设置速度
@@ -201,13 +187,8 @@
   function handleStatusUpdate(topic, payload) {
     console.log(`Fan status update: ${payload}`);
 
-    const parts = payload.split(":");
-    if (parts.length !== 2) {
-      return;
-    }
-
-    const status = parts[0];
-    const speed = parseInt(parts[1]);
+    // 现在 payload 只是速度值
+    const speed = parseInt(payload);
 
     if (isNaN(speed)) {
       return;
@@ -216,6 +197,8 @@
     fanControlState.currentSpeed = speed;
 
     updateSpeedDisplay(speed);
+    // 根据速度判断状态
+    const status = speed === 0 ? "stopped" : "running";
     updateStatusIndicator(status);
   }
 

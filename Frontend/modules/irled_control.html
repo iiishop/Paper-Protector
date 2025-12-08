@@ -1,0 +1,272 @@
+<div class="module" id="irled-control-module">
+    <div class="module-header">
+        <h2>IR LED Control</h2>
+        <button class="close-btn" onclick="window.moduleLoader.closeModule('irled-control-module')">×</button>
+    </div>
+    <div class="module-body">
+        <div class="irled-controls">
+            <div class="led-status-container">
+                <div class="led-indicator" id="led-indicator">
+                    <div class="led-light"></div>
+                </div>
+                <div class="status-text" id="irled-status-text">未知状态</div>
+            </div>
+
+            <div class="control-buttons">
+                <button class="btn btn-success" id="led-on-btn" onclick="irledControl.turnOn()">
+                    <span>🔦</span> 打开
+                </button>
+                <button class="btn btn-danger" id="led-off-btn" onclick="irledControl.turnOff()">
+                    <span>⚫</span> 关闭
+                </button>
+            </div>
+        </div>
+
+        <div class="info-section">
+            <h3>状态信息</h3>
+            <div class="info-grid">
+                <div class="info-item">
+                    <label>控制引脚:</label>
+                    <span>D4</span>
+                </div>
+                <div class="info-item">
+                    <label>当前状态:</label>
+                    <span id="current-state">-</span>
+                </div>
+                <div class="info-item">
+                    <label>最后更新:</label>
+                    <span id="last-update">-</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    #irled-control-module {
+        min-width: 350px;
+    }
+
+    .irled-controls {
+        display: flex;
+        flex-direction: column;
+        gap: 24px;
+        padding: 20px;
+    }
+
+    .led-status-container {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 16px;
+        padding: 24px;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border-radius: 12px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+
+    .led-indicator {
+        width: 80px;
+        height: 80px;
+        border-radius: 50%;
+        background: #2d3748;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.3);
+        position: relative;
+    }
+
+    .led-light {
+        width: 60px;
+        height: 60px;
+        border-radius: 50%;
+        background: #4a5568;
+        transition: all 0.3s ease;
+        box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+    }
+
+    .led-indicator.on .led-light {
+        background: #f56565;
+        box-shadow: 0 0 20px #f56565, 0 0 40px #f56565, inset 0 0 10px #ff0000;
+        animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+
+        0%,
+        100% {
+            box-shadow: 0 0 20px #f56565, 0 0 40px #f56565, inset 0 0 10px #ff0000;
+        }
+
+        50% {
+            box-shadow: 0 0 30px #f56565, 0 0 60px #f56565, inset 0 0 15px #ff0000;
+        }
+    }
+
+    .status-text {
+        font-size: 18px;
+        font-weight: 600;
+        color: white;
+        text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    }
+
+    .control-buttons {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 12px;
+    }
+
+    .btn {
+        padding: 14px 24px;
+        font-size: 16px;
+        font-weight: 600;
+        border: none;
+        border-radius: 8px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+    }
+
+    .btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+    }
+
+    .btn:active {
+        transform: translateY(0);
+    }
+
+    .btn-success {
+        background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+        color: white;
+    }
+
+    .btn-success:hover {
+        background: linear-gradient(135deg, #059669 0%, #047857 100%);
+    }
+
+    .btn-danger {
+        background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+        color: white;
+    }
+
+    .btn-danger:hover {
+        background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+    }
+
+    .info-section {
+        padding: 16px;
+        background: #f7fafc;
+        border-radius: 8px;
+    }
+
+    .info-section h3 {
+        margin: 0 0 12px 0;
+        font-size: 14px;
+        color: #4a5568;
+        font-weight: 600;
+    }
+
+    .info-grid {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    .info-item {
+        display: flex;
+        justify-content: space-between;
+        padding: 8px;
+        background: white;
+        border-radius: 4px;
+        font-size: 14px;
+    }
+
+    .info-item label {
+        color: #718096;
+        font-weight: 500;
+    }
+
+    .info-item span {
+        color: #2d3748;
+        font-weight: 600;
+    }
+</style>
+
+<script>
+    const irledControl = {
+        ledState: false,
+
+        init() {
+            console.log('IR LED Control: 初始化...');
+
+            // 订阅 IRLED 状态消息
+            window.pubsubClient.subscribe('irled/status', (topic, payload) => {
+                console.log('IR LED Control: 收到状态消息:', payload);
+                this.updateStatus(payload);
+            });
+
+            // 延迟请求初始状态,确保 Arduino 已准备好
+            setTimeout(() => {
+                console.log('IR LED Control: 请求初始状态...');
+                this.requestStatus();
+            }, 500);
+        },
+
+        turnOn() {
+            window.pubsubClient.publish('irled/control', 'on');
+            console.log('IR LED: 发送打开命令');
+        },
+
+        turnOff() {
+            window.pubsubClient.publish('irled/control', 'off');
+            console.log('IR LED: 发送关闭命令');
+        },
+
+        requestStatus() {
+            console.log('IR LED Control: 发送 irled/get 请求');
+            window.pubsubClient.publish('irled/get', '');
+        },
+
+        updateStatus(payload) {
+            const state = payload.toLowerCase();
+            this.ledState = (state === 'on' || state === '1' || state === 'true');
+
+            const indicator = document.getElementById('led-indicator');
+            const statusText = document.getElementById('irled-status-text');
+            const currentState = document.getElementById('current-state');
+            const lastUpdate = document.getElementById('last-update');
+
+            if (this.ledState) {
+                indicator.classList.add('on');
+                statusText.textContent = 'IR LED 已打开';
+                currentState.textContent = '开启';
+                currentState.style.color = '#10b981';
+            } else {
+                indicator.classList.remove('on');
+                statusText.textContent = 'IR LED 已关闭';
+                currentState.textContent = '关闭';
+                currentState.style.color = '#6b7280';
+            }
+
+            // 更新时间
+            const now = new Date();
+            lastUpdate.textContent = now.toLocaleTimeString('zh-CN');
+
+            console.log(`IR LED 状态更新: ${this.ledState ? '开启' : '关闭'}`);
+        }
+    };
+
+    // 初始化
+    if (window.pubsubClient && window.pubsubClient.isConnected()) {
+        irledControl.init();
+    } else {
+        window.addEventListener('pubsub-connected', () => {
+            irledControl.init();
+        });
+    }
+</script>

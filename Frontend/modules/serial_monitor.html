@@ -12,6 +12,7 @@
       opacity: 0;
       transform: translateX(-10px);
     }
+
     to {
       opacity: 1;
       transform: translateX(0);
@@ -52,6 +53,7 @@
       opacity: 0;
       transform: translateY(-5px);
     }
+
     to {
       opacity: 1;
       transform: translateY(0);
@@ -65,8 +67,20 @@
 
   .message-timestamp {
     color: var(--text-secondary);
-    font-size: var(--font-size-sm);
-    font-weight: 500;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  .message-topic {
+    color: var(--primary-color);
+    font-size: 0.8rem;
+    font-weight: 600;
+    margin-left: var(--spacing-sm);
+    padding: 2px var(--spacing-xs);
+    background-color: var(--primary-light);
+    border-radius: var(--border-radius);
   }
 
   .message-payload {
@@ -127,6 +141,7 @@
       opacity: 0;
       transform: translateY(-10px);
     }
+
     to {
       opacity: 1;
       transform: translateY(0);
@@ -179,12 +194,7 @@
       <div class="module-form-row">
         <div class="module-form-group">
           <label for="subscribe-topic">主题</label>
-          <input
-            type="text"
-            id="subscribe-topic"
-            placeholder="例如: sensor/temp"
-            required
-          />
+          <input type="text" id="subscribe-topic" placeholder="例如: sensor/temp" required />
         </div>
         <button type="submit" class="btn btn-primary">订阅</button>
       </div>
@@ -198,9 +208,20 @@
     </div>
   </div>
 
+  <!-- All Messages Debug Section -->
+  <div class="module-section">
+    <h3 class="module-section-title">🐛 所有串口消息 (调试)</h3>
+    <div class="module-scrollable" id="all-messages-container" style="max-height: 300px;">
+      <div class="text-muted text-center p-md">等待消息...</div>
+    </div>
+    <div style="margin-top: var(--spacing-sm); font-size: var(--font-size-sm); color: var(--text-secondary);">
+      显示最近 100 条消息 · 总计: <span id="total-messages-count">0</span> 条
+    </div>
+  </div>
+
   <!-- Message Display Section -->
   <div class="module-section">
-    <h3 class="module-section-title">消息显示</h3>
+    <h3 class="module-section-title">消息显示 (按主题分组)</h3>
     <div class="module-scrollable" id="messages-container">
       <div class="text-muted text-center p-md">等待消息...</div>
     </div>
@@ -212,21 +233,11 @@
     <form class="module-form" id="publish-form">
       <div class="module-form-group">
         <label for="publish-topic">主题</label>
-        <input
-          type="text"
-          id="publish-topic"
-          placeholder="例如: led/control"
-          required
-        />
+        <input type="text" id="publish-topic" placeholder="例如: led/control" required />
       </div>
       <div class="module-form-group">
         <label for="publish-payload">内容</label>
-        <textarea
-          id="publish-payload"
-          rows="3"
-          placeholder="例如: ON"
-          required
-        ></textarea>
+        <textarea id="publish-payload" rows="3" placeholder="例如: ON" required></textarea>
       </div>
       <button type="submit" class="btn btn-primary">发送</button>
     </form>
@@ -247,7 +258,9 @@
     pubsubClient: null,
     subscribedTopics: new Set(),
     messagesByTopic: new Map(), // topic -> array of messages
+    allMessages: [], // 所有串口消息的历史记录
     maxMessagesPerTopic: 100,
+    maxAllMessages: 500, // 全局消息最大数量
   };
 
   /**
@@ -259,12 +272,114 @@
 
     serialMonitorState.pubsubClient = pubsubClient;
 
-    // Set up event listeners
-    setupSubscriptionForm();
-    setupPublishForm();
-    setupClearButton();
+    // 监听所有消息（用于调试）
+    pubsubClient.onMessage((message) => {
+      if (message.type === 'message' && message.source === 'arduino') {
+        addToAllMessages(message.topic, message.payload, 'received');
+      }
+    });
+  } else if (message.source === 'user' || message.direction === 'sent') {
+    addToAllMessages(message.topic, message.payload, 'sent');
+  }
+      }
+    });
 
-    console.log("Serial Monitor module initialized");
+  // Set up event listeners
+  setupSubscriptionForm();
+  setupPublishForm();
+  setupClearButton();
+
+  console.log("Serial Monitor module initialized");
+  }
+
+  /**
+   * Add message to all messages list (for debugging)
+   */
+  function addToAllMessages(topic, payload, direction = 'received') {
+    const message = {
+      topic: topic,
+      payload: payload,
+      timestamp: new Date(),
+      direction: direction // 'sent' or 'received'
+    };
+
+    serialMonitorState.allMessages.push(message);
+
+    // Limit array size
+    if (serialMonitorState.allMessages.length > serialMonitorState.maxAllMessages) {
+      serialMonitorState.allMessages.shift();
+    }
+
+    // Update all messages display
+    updateAllMessagesDisplay();
+  }
+
+  /**
+   * Update all messages display
+   */
+  function updateAllMessagesDisplay() {
+    const container = document.getElementById("all-messages-container");
+    if (!container) return;
+
+    if (serialMonitorState.allMessages.length === 0) {
+      container.innerHTML = '<div class="text-muted text-center p-md">等待消息...</div>';
+      return;
+    }
+
+    // Clear container
+    container.innerHTML = "";
+
+    // Display all messages in reverse order (newest first)
+    const messagesToShow = serialMonitorState.allMessages.slice().reverse().slice(0, 100);
+
+    messagesToShow.forEach((msg) => {
+      const messageItem = document.createElement("div");
+      messageItem.className = "message-item";
+
+      // 根据消息方向设置不同的边框颜色
+      if (msg.direction === 'sent') {
+        messageItem.style.borderLeftColor = "var(--warning-color)";
+      } else {
+        messageItem.style.borderLeftColor = "var(--secondary-color)";
+      }
+
+      const timestamp = document.createElement("span");
+      timestamp.className = "message-timestamp";
+      timestamp.textContent = formatTimestamp(msg.timestamp);
+
+      const directionIcon = document.createElement("span");
+      directionIcon.textContent = msg.direction === 'sent' ? '↑' : '↓';
+      directionIcon.style.marginLeft = "var(--spacing-xs)";
+      directionIcon.style.fontSize = "1rem";
+      directionIcon.style.color = msg.direction === 'sent' ? 'var(--warning-color)' : 'var(--secondary-color)';
+      directionIcon.title = msg.direction === 'sent' ? '发送到Arduino' : '从Arduino接收';
+
+      const topicSpan = document.createElement("span");
+      topicSpan.className = "message-topic";
+      topicSpan.textContent = msg.topic;
+      topicSpan.style.color = "var(--primary-color)";
+      topicSpan.style.fontWeight = "600";
+      topicSpan.style.marginLeft = "var(--spacing-sm)";
+
+      const payload = document.createElement("div");
+      payload.className = "message-payload";
+      payload.textContent = msg.payload;
+
+      const header = document.createElement("div");
+      header.style.display = "flex";
+      header.style.alignItems = "center";
+      header.style.marginBottom = "var(--spacing-xs)";
+      header.appendChild(timestamp);
+      header.appendChild(directionIcon);
+      header.appendChild(topicSpan);
+
+      messageItem.appendChild(header);
+      messageItem.appendChild(payload);
+      container.appendChild(messageItem);
+    });
+
+    // Auto scroll to top (newest message)
+    container.scrollTop = 0;
   }
 
   /**
@@ -398,6 +513,19 @@
 
     // Auto-scroll to latest message
     scrollToLatestMessage();
+
+    // Update total message count
+    updateTotalMessageCount();
+  }
+
+  /**
+   * Update total message count display
+   */
+  function updateTotalMessageCount() {
+    const countElement = document.getElementById("total-messages-count");
+    if (countElement) {
+      countElement.textContent = serialMonitorState.allMessages.length;
+    }
   }
 
   /**
@@ -557,6 +685,7 @@
     clearBtn.addEventListener("click", () => {
       // Clear all messages
       serialMonitorState.messagesByTopic.clear();
+      serialMonitorState.allMessages = [];
 
       // Reinitialize message arrays for subscribed topics
       serialMonitorState.subscribedTopics.forEach((topic) => {
@@ -565,6 +694,8 @@
 
       // Update display
       updateMessagesDisplay();
+      updateAllMessagesDisplay();
+      updateTotalMessageCount();
 
       console.log("Messages cleared");
     });

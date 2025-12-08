@@ -47,6 +47,15 @@
   <!-- Control Section -->
   <div class="module-section">
     <h3 class="module-section-title">控制面板</h3>
+
+    <!-- LED Status Indicator -->
+    <div class="led-status-container">
+      <div class="led-indicator" id="irled-indicator">
+        <div class="led-icon inactive" id="irled-icon"></div>
+        <div class="led-text" id="irled-text">IR LED: 关闭</div>
+      </div>
+    </div>
+
     <div class="control-buttons-grid">
       <button class="btn control-btn measure" id="measure-btn">
         📊 开始测量
@@ -106,6 +115,9 @@
     pubsubClient.subscribe("moisture/error", handleMoistureError);
     pubsubClient.subscribe("moisture/calibration", handleCalibrationResponse);
     pubsubClient.subscribe("moisture/status", handleStatusUpdate);
+
+    // Subscribe to LED status topic
+    pubsubClient.subscribe("irled/status", handleLEDStatus);
 
     // Set up event listeners
     setupControlButtons();
@@ -285,6 +297,41 @@
   function handleStatusUpdate(topic, payload) {
     console.log(`Status update: ${payload}`);
     showStatusMessage(`状态: ${payload}`, "info");
+  }
+
+  /**
+   * Handle LED status updates
+   */
+  function handleLEDStatus(topic, payload) {
+    console.log(`LED status received: ${payload}`);
+    const isOn = payload === "on";
+    updateLEDIndicator(isOn);
+  }
+
+  /**
+   * Update LED indicator UI
+   */
+  function updateLEDIndicator(isOn) {
+    const icon = document.getElementById("irled-icon");
+    const text = document.getElementById("irled-text");
+
+    if (!icon || !text) {
+      console.error("LED indicator elements not found");
+      return;
+    }
+
+    // Remove both classes first
+    icon.classList.remove("active", "inactive");
+
+    if (isOn) {
+      icon.classList.add("active");
+      text.textContent = "IR LED: 开启";
+      text.style.color = "#4CAF50";
+    } else {
+      icon.classList.add("inactive");
+      text.textContent = "IR LED: 关闭";
+      text.style.color = "#757575";
+    }
   }
 
   /**
@@ -546,6 +593,7 @@
     moistureSensorState.pubsubClient.unsubscribe("moisture/error");
     moistureSensorState.pubsubClient.unsubscribe("moisture/calibration");
     moistureSensorState.pubsubClient.unsubscribe("moisture/status");
+    moistureSensorState.pubsubClient.unsubscribe("irled/status");
 
     // Clear state
     moistureSensorState.measurementHistory = [];
