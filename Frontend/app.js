@@ -40,6 +40,9 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!moduleLoader.isModuleLoaded('fan_control')) {
                 loadFanControl();
             }
+            if (!moduleLoader.isModuleLoaded('moisture_sensor')) {
+                loadMoistureSensor();
+            }
         }
     });
 
@@ -75,6 +78,11 @@ function registerModules() {
     moduleLoader.registerModule('fan_control', {
         path: 'modules/fan_control.html',
         title: '风扇控制'
+    });
+
+    moduleLoader.registerModule('moisture_sensor', {
+        path: 'modules/moisture_sensor.html',
+        title: '湿度传感器'
     });
 
     console.log('Modules registered');
@@ -116,6 +124,20 @@ async function loadFanControl() {
         console.log('Fan Control module loaded');
     } else {
         console.error('Failed to load Fan Control module');
+    }
+}
+
+/**
+ * Load Moisture Sensor module
+ */
+async function loadMoistureSensor() {
+    console.log('Loading Moisture Sensor module...');
+    const success = await moduleLoader.loadModule('moisture_sensor', 'module-container');
+
+    if (success) {
+        console.log('Moisture Sensor module loaded');
+    } else {
+        console.error('Failed to load Moisture Sensor module');
     }
 }
 

@@ -1,0 +1,556 @@
+<link rel="stylesheet" href="../styles/moisture_sensor.css" />
+
+<!-- Moisture Sensor Module -->
+<div class="module-header">
+  <h2 class="module-title">纸张湿度传感器</h2>
+  <div class="module-actions">
+    <button class="btn btn-secondary" id="clear-chart-btn">清空图表</button>
+  </div>
+</div>
+
+<div class="module-content">
+  <!-- Real-time Moisture Display Section -->
+  <div class="module-section">
+    <h3 class="module-section-title">实时湿度显示</h3>
+    <div class="moisture-display-container">
+      <div class="moisture-value dry" id="moisture-value">--</div>
+      <div class="moisture-label">湿度百分比 (%)</div>
+
+      <!-- Paper Status Indicator -->
+      <div class="paper-status-container">
+        <div class="paper-status-icon absent" id="paper-status-icon"></div>
+        <div class="paper-status-text" id="paper-status-text">等待检测</div>
+      </div>
+    </div>
+
+    <!-- Data Info Display -->
+    <div class="data-info">
+      <div class="data-info-item">
+        <div class="data-info-label">数据点数</div>
+        <div class="data-info-value" id="data-points-count">0</div>
+      </div>
+      <div class="data-info-item">
+        <div class="data-info-label">最小湿度</div>
+        <div class="data-info-value" id="min-moisture">--</div>
+      </div>
+      <div class="data-info-item">
+        <div class="data-info-label">最大湿度</div>
+        <div class="data-info-value" id="max-moisture">--</div>
+      </div>
+      <div class="data-info-item">
+        <div class="data-info-label">平均湿度</div>
+        <div class="data-info-value" id="avg-moisture">--</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Control Section -->
+  <div class="module-section">
+    <h3 class="module-section-title">控制面板</h3>
+    <div class="control-buttons-grid">
+      <button class="btn control-btn measure" id="measure-btn">
+        📊 开始测量
+      </button>
+      <button class="btn control-btn calibrate-dry" id="calibrate-dry-btn">
+        🌵 校准干燥
+      </button>
+      <button class="btn control-btn calibrate-wet" id="calibrate-wet-btn">
+        💧 校准湿润
+      </button>
+      <button class="btn control-btn clear-data" id="clear-data-btn">
+        🗑️ 清除数据
+      </button>
+    </div>
+
+    <!-- Status Message Area -->
+    <div id="status-message-container"></div>
+  </div>
+
+  <!-- Moisture Distribution Chart Section -->
+  <div class="module-section">
+    <h3 class="module-section-title">湿度分布图 (0-21cm)</h3>
+    <div class="chart-container">
+      <canvas id="moisture-chart"></canvas>
+    </div>
+  </div>
+</div>
+
+<script>
+  /**
+   * Moisture Sensor Module
+   * Displays real-time moisture data and distribution chart
+   */
+
+  // Module state
+  let moistureSensorState = {
+    pubsubClient: null,
+    currentMoisture: null,
+    paperPresent: false,
+    measurementHistory: [], // Array of {position, moisture, timestamp}
+    maxDataPoints: 200,
+    chartCanvas: null,
+    chartContext: null,
+  };
+
+  /**
+   * Initialize the moisture sensor module
+   * This function is called by the module loader
+   */
+  function init_moisture_sensor(pubsubClient) {
+    console.log("Initializing Moisture Sensor module...");
+
+    moistureSensorState.pubsubClient = pubsubClient;
+
+    // Subscribe to moisture data topics
+    pubsubClient.subscribe("moisture/data", handleMoistureData);
+    pubsubClient.subscribe("moisture/error", handleMoistureError);
+    pubsubClient.subscribe("moisture/calibration", handleCalibrationResponse);
+    pubsubClient.subscribe("moisture/status", handleStatusUpdate);
+
+    // Set up event listeners
+    setupControlButtons();
+    setupChart();
+
+    console.log("Moisture Sensor module initialized");
+  }
+
+  /**
+   * Setup control buttons
+   */
+  function setupControlButtons() {
+    // Measure button
+    document.getElementById("measure-btn").addEventListener("click", () => {
+      sendMeasureCommand();
+    });
+
+    // Calibrate dry button
+    document
+      .getElementById("calibrate-dry-btn")
+      .addEventListener("click", () => {
+        sendCalibrateCommand("dry");
+      });
+
+    // Calibrate wet button
+    document
+      .getElementById("calibrate-wet-btn")
+      .addEventListener("click", () => {
+        sendCalibrateCommand("wet");
+      });
+
+    // Clear data button
+    document.getElementById("clear-data-btn").addEventListener("click", () => {
+      clearMeasurementData();
+    });
+
+    // Clear chart button
+    document.getElementById("clear-chart-btn").addEventListener("click", () => {
+      clearMeasurementData();
+    });
+  }
+
+  /**
+   * Setup chart canvas
+   */
+  function setupChart() {
+    moistureSensorState.chartCanvas = document.getElementById("moisture-chart");
+    moistureSensorState.chartContext =
+      moistureSensorState.chartCanvas.getContext("2d");
+
+    // Initial draw
+    drawChart();
+  }
+
+  /**
+   * Send measure command
+   */
+  function sendMeasureCommand() {
+    const success = moistureSensorState.pubsubClient.publish(
+      "moisture/measure",
+      ""
+    );
+
+    if (success) {
+      showStatusMessage("测量命令已发送", "info");
+      console.log("Sent measure command");
+    } else {
+      showStatusMessage("发送失败: WebSocket未连接", "error");
+    }
+  }
+
+  /**
+   * Send calibrate command
+   */
+  function sendCalibrateCommand(type) {
+    const payload = JSON.stringify({ type: type });
+    const success = moistureSensorState.pubsubClient.publish(
+      "moisture/calibrate",
+      payload
+    );
+
+    if (success) {
+      const typeText = type === "dry" ? "干燥" : "湿润";
+      showStatusMessage(`${typeText}校准命令已发送`, "info");
+      console.log(`Sent calibrate command: ${type}`);
+    } else {
+      showStatusMessage("发送失败: WebSocket未连接", "error");
+    }
+  }
+
+  /**
+   * Clear measurement data
+   */
+  function clearMeasurementData() {
+    moistureSensorState.measurementHistory = [];
+    moistureSensorState.currentMoisture = null;
+
+    updateMoistureDisplay(null);
+    updateDataInfo();
+    drawChart();
+
+    showStatusMessage("数据已清除", "success");
+    console.log("Measurement data cleared");
+  }
+
+  /**
+   * Handle incoming moisture data
+   */
+  function handleMoistureData(topic, payload) {
+    console.log(`Moisture data received: ${payload}`);
+
+    try {
+      const data = JSON.parse(payload);
+
+      // Extract data
+      const paperPresent = data.paper_present || false;
+      const moisture = data.moisture || 0;
+      const isDry = data.is_dry || false;
+
+      // Update current state
+      moistureSensorState.currentMoisture = moisture;
+      moistureSensorState.paperPresent = paperPresent;
+
+      // Update display
+      updateMoistureDisplay(moisture, isDry);
+      updatePaperStatus(paperPresent);
+
+      // Add to history (with position if available)
+      const position =
+        data.position !== undefined
+          ? data.position
+          : moistureSensorState.measurementHistory.length * 0.2;
+      addMeasurementToHistory(position, moisture);
+
+      // Update chart and stats
+      updateDataInfo();
+      drawChart();
+    } catch (error) {
+      console.error("Error parsing moisture data:", error);
+      showStatusMessage("数据解析错误", "error");
+    }
+  }
+
+  /**
+   * Handle moisture error
+   */
+  function handleMoistureError(topic, payload) {
+    console.error(`Moisture error: ${payload}`);
+    showStatusMessage(`错误: ${payload}`, "error");
+  }
+
+  /**
+   * Handle calibration response
+   */
+  function handleCalibrationResponse(topic, payload) {
+    console.log(`Calibration response: ${payload}`);
+
+    try {
+      const data = JSON.parse(payload);
+      const type = data.type || "unknown";
+      const success = data.success || false;
+
+      if (success) {
+        const typeText = type === "dry" ? "干燥" : "湿润";
+        showStatusMessage(`${typeText}校准成功`, "success");
+      } else {
+        showStatusMessage(`校准失败`, "error");
+      }
+    } catch (error) {
+      showStatusMessage(`校准响应: ${payload}`, "info");
+    }
+  }
+
+  /**
+   * Handle status update
+   */
+  function handleStatusUpdate(topic, payload) {
+    console.log(`Status update: ${payload}`);
+    showStatusMessage(`状态: ${payload}`, "info");
+  }
+
+  /**
+   * Update moisture display
+   */
+  function updateMoistureDisplay(moisture, isDry = false) {
+    const valueElement = document.getElementById("moisture-value");
+
+    if (moisture === null || moisture === undefined) {
+      valueElement.textContent = "--";
+      valueElement.className = "moisture-value";
+      return;
+    }
+
+    // Update value
+    valueElement.textContent = moisture.toFixed(1) + "%";
+
+    // Update color based on moisture level
+    valueElement.classList.remove("dry", "low", "medium", "high");
+
+    if (moisture < 5) {
+      valueElement.classList.add("dry");
+    } else if (moisture < 30) {
+      valueElement.classList.add("low");
+    } else if (moisture < 60) {
+      valueElement.classList.add("medium");
+    } else {
+      valueElement.classList.add("high");
+    }
+  }
+
+  /**
+   * Update paper status indicator
+   */
+  function updatePaperStatus(paperPresent) {
+    const iconElement = document.getElementById("paper-status-icon");
+    const textElement = document.getElementById("paper-status-text");
+
+    iconElement.classList.remove("present", "absent");
+
+    if (paperPresent) {
+      iconElement.classList.add("present");
+      textElement.textContent = "纸张存在";
+    } else {
+      iconElement.classList.add("absent");
+      textElement.textContent = "无纸张";
+    }
+  }
+
+  /**
+   * Add measurement to history
+   */
+  function addMeasurementToHistory(position, moisture) {
+    moistureSensorState.measurementHistory.push({
+      position: position,
+      moisture: moisture,
+      timestamp: new Date(),
+    });
+
+    // Limit history size
+    if (
+      moistureSensorState.measurementHistory.length >
+      moistureSensorState.maxDataPoints
+    ) {
+      moistureSensorState.measurementHistory.shift();
+    }
+  }
+
+  /**
+   * Update data info display
+   */
+  function updateDataInfo() {
+    const history = moistureSensorState.measurementHistory;
+
+    document.getElementById("data-points-count").textContent = history.length;
+
+    if (history.length === 0) {
+      document.getElementById("min-moisture").textContent = "--";
+      document.getElementById("max-moisture").textContent = "--";
+      document.getElementById("avg-moisture").textContent = "--";
+      return;
+    }
+
+    const moistureValues = history.map((item) => item.moisture);
+    const min = Math.min(...moistureValues);
+    const max = Math.max(...moistureValues);
+    const avg =
+      moistureValues.reduce((a, b) => a + b, 0) / moistureValues.length;
+
+    document.getElementById("min-moisture").textContent = min.toFixed(1) + "%";
+    document.getElementById("max-moisture").textContent = max.toFixed(1) + "%";
+    document.getElementById("avg-moisture").textContent = avg.toFixed(1) + "%";
+  }
+
+  /**
+   * Draw moisture distribution chart
+   */
+  function drawChart() {
+    const canvas = moistureSensorState.chartCanvas;
+    const ctx = moistureSensorState.chartContext;
+
+    if (!canvas || !ctx) return;
+
+    // Set canvas size
+    canvas.width = canvas.offsetWidth;
+    canvas.height = canvas.offsetHeight;
+
+    const width = canvas.width;
+    const height = canvas.height;
+    const padding = 40;
+    const chartWidth = width - 2 * padding;
+    const chartHeight = height - 2 * padding;
+
+    // Clear canvas
+    ctx.clearRect(0, 0, width, height);
+
+    // Draw background
+    ctx.fillStyle = "#FFFFFF";
+    ctx.fillRect(0, 0, width, height);
+
+    // Draw axes
+    ctx.strokeStyle = "#212121";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(padding, padding);
+    ctx.lineTo(padding, height - padding);
+    ctx.lineTo(width - padding, height - padding);
+    ctx.stroke();
+
+    // Draw axis labels
+    ctx.fillStyle = "#212121";
+    ctx.font = "12px Arial";
+    ctx.textAlign = "center";
+
+    // X-axis label
+    ctx.fillText("位置 (cm)", width / 2, height - 10);
+
+    // Y-axis label
+    ctx.save();
+    ctx.translate(15, height / 2);
+    ctx.rotate(-Math.PI / 2);
+    ctx.fillText("湿度 (%)", 0, 0);
+    ctx.restore();
+
+    // Draw grid lines and labels
+    ctx.strokeStyle = "#E0E0E0";
+    ctx.lineWidth = 1;
+    ctx.fillStyle = "#757575";
+    ctx.font = "10px Arial";
+
+    // Y-axis grid (0-100%)
+    for (let i = 0; i <= 10; i++) {
+      const y = height - padding - (i * chartHeight) / 10;
+      ctx.beginPath();
+      ctx.moveTo(padding, y);
+      ctx.lineTo(width - padding, y);
+      ctx.stroke();
+
+      ctx.textAlign = "right";
+      ctx.fillText((i * 10).toString(), padding - 5, y + 3);
+    }
+
+    // X-axis grid (0-21cm)
+    for (let i = 0; i <= 21; i += 3) {
+      const x = padding + (i * chartWidth) / 21;
+      ctx.beginPath();
+      ctx.moveTo(x, padding);
+      ctx.lineTo(x, height - padding);
+      ctx.stroke();
+
+      ctx.textAlign = "center";
+      ctx.fillText(i.toString(), x, height - padding + 15);
+    }
+
+    // Draw data points and line
+    const history = moistureSensorState.measurementHistory;
+
+    if (history.length === 0) {
+      ctx.fillStyle = "#757575";
+      ctx.font = "14px Arial";
+      ctx.textAlign = "center";
+      ctx.fillText("暂无数据", width / 2, height / 2);
+      return;
+    }
+
+    // Draw line
+    ctx.strokeStyle = "#2196F3";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+
+    history.forEach((point, index) => {
+      const x = padding + (point.position * chartWidth) / 21;
+      const y = height - padding - (point.moisture * chartHeight) / 100;
+
+      if (index === 0) {
+        ctx.moveTo(x, y);
+      } else {
+        ctx.lineTo(x, y);
+      }
+    });
+
+    ctx.stroke();
+
+    // Draw data points
+    history.forEach((point) => {
+      const x = padding + (point.position * chartWidth) / 21;
+      const y = height - padding - (point.moisture * chartHeight) / 100;
+
+      // Determine color based on moisture level
+      let color;
+      if (point.moisture < 5) {
+        color = "#4CAF50"; // Green - dry
+      } else if (point.moisture < 30) {
+        color = "#FFC107"; // Yellow
+      } else if (point.moisture < 60) {
+        color = "#FF9800"; // Orange
+      } else {
+        color = "#F44336"; // Red
+      }
+
+      ctx.fillStyle = color;
+      ctx.beginPath();
+      ctx.arc(x, y, 4, 0, 2 * Math.PI);
+      ctx.fill();
+
+      // Draw outline
+      ctx.strokeStyle = "#FFFFFF";
+      ctx.lineWidth = 2;
+      ctx.stroke();
+    });
+  }
+
+  /**
+   * Show status message
+   */
+  function showStatusMessage(message, type = "info") {
+    const container = document.getElementById("status-message-container");
+
+    container.innerHTML = `
+      <div class="status-message ${type}">
+        ${message}
+      </div>
+    `;
+
+    // Auto-hide after 3 seconds
+    setTimeout(() => {
+      container.innerHTML = "";
+    }, 3000);
+  }
+
+  /**
+   * Cleanup function (called when module is unloaded)
+   */
+  function cleanup_moisture_sensor() {
+    console.log("Cleaning up Moisture Sensor module...");
+
+    // Unsubscribe from topics
+    moistureSensorState.pubsubClient.unsubscribe("moisture/data");
+    moistureSensorState.pubsubClient.unsubscribe("moisture/error");
+    moistureSensorState.pubsubClient.unsubscribe("moisture/calibration");
+    moistureSensorState.pubsubClient.unsubscribe("moisture/status");
+
+    // Clear state
+    moistureSensorState.measurementHistory = [];
+    moistureSensorState.currentMoisture = null;
+
+    console.log("Moisture Sensor module cleaned up");
+  }
+</script>

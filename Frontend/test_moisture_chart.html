@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Moisture Chart Test</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        padding: 20px;
+        background-color: #f5f5f5;
+      }
+      .test-container {
+        max-width: 1000px;
+        margin: 0 auto;
+        background: white;
+        padding: 20px;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      }
+      .chart-container {
+        position: relative;
+        width: 100%;
+        height: 400px;
+        background-color: #ffffff;
+        border: 1px solid #e0e0e0;
+        border-radius: 4px;
+        padding: 16px;
+        margin: 20px 0;
+      }
+      #moisture-chart {
+        width: 100%;
+        height: 100%;
+      }
+      .controls {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 20px;
+      }
+      button {
+        padding: 10px 20px;
+        background-color: #2196f3;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+      }
+      button:hover {
+        background-color: #1976d2;
+      }
+      .info {
+        margin-top: 20px;
+        padding: 10px;
+        background-color: #e3f2fd;
+        border-radius: 4px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="test-container">
+      <h1>湿度分布图测试</h1>
+
+      <div class="controls">
+        <button onclick="addRandomPoint()">添加随机数据点</button>
+        <button onclick="addMultiplePoints()">添加10个数据点</button>
+        <button onclick="clearData()">清除数据</button>
+        <button onclick="testFullScan()">模拟完整扫描 (21cm)</button>
+      </div>
+
+      <div class="info">
+        <strong>数据点数:</strong> <span id="point-count">0</span> / 200<br />
+        <strong>测试说明:</strong> 此页面测试湿度分布图的Canvas绘制功能
+      </div>
+
+      <div class="chart-container">
+        <canvas id="moisture-chart"></canvas>
+      </div>
+    </div>
+
+    <script>
+      // Test state
+      let measurementHistory = [];
+      const maxDataPoints = 200;
+      let chartCanvas = null;
+      let chartContext = null;
+
+      // Initialize
+      window.addEventListener("load", () => {
+        chartCanvas = document.getElementById("moisture-chart");
+        chartContext = chartCanvas.getContext("2d");
+        drawChart();
+      });
+
+      // Add random data point
+      function addRandomPoint() {
+        const position = Math.random() * 21; // 0-21cm
+        const moisture = Math.random() * 100; // 0-100%
+
+        measurementHistory.push({
+          position: position,
+          moisture: moisture,
+          timestamp: new Date(),
+        });
+
+        // Limit history size
+        if (measurementHistory.length > maxDataPoints) {
+          measurementHistory.shift();
+        }
+
+        updateInfo();
+        drawChart();
+      }
+
+      // Add multiple points
+      function addMultiplePoints() {
+        for (let i = 0; i < 10; i++) {
+          addRandomPoint();
+        }
+      }
+
+      // Clear data
+      function clearData() {
+        measurementHistory = [];
+        updateInfo();
+        drawChart();
+      }
+
+      // Test full scan
+      function testFullScan() {
+        measurementHistory = [];
+
+        // Simulate 103 measurements across 21cm
+        for (let i = 0; i < 103; i++) {
+          const position = (i / 102) * 21; // Evenly distributed 0-21cm
+          const moisture = 30 + Math.sin(i / 10) * 20 + Math.random() * 10; // Sine wave with noise
+
+          measurementHistory.push({
+            position: position,
+            moisture: Math.max(0, Math.min(100, moisture)),
+            timestamp: new Date(),
+          });
+        }
+
+        updateInfo();
+        drawChart();
+      }
+
+      // Update info display
+      function updateInfo() {
+        document.getElementById("point-count").textContent =
+          measurementHistory.length;
+      }
+
+      // Draw chart (same implementation as in moisture_sensor.html)
+      function drawChart() {
+        const canvas = chartCanvas;
+        const ctx = chartContext;
+
+        if (!canvas || !ctx) return;
+
+        // Set canvas size
+        canvas.width = canvas.offsetWidth;
+        canvas.height = canvas.offsetHeight;
+
+        const width = canvas.width;
+        const height = canvas.height;
+        const padding = 40;
+        const chartWidth = width - 2 * padding;
+        const chartHeight = height - 2 * padding;
+
+        // Clear canvas
+        ctx.clearRect(0, 0, width, height);
+
+        // Draw background
+        ctx.fillStyle = "#FFFFFF";
+        ctx.fillRect(0, 0, width, height);
+
+        // Draw axes
+        ctx.strokeStyle = "#212121";
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(padding, padding);
+        ctx.lineTo(padding, height - padding);
+        ctx.lineTo(width - padding, height - padding);
+        ctx.stroke();
+
+        // Draw axis labels
+        ctx.fillStyle = "#212121";
+        ctx.font = "12px Arial";
+        ctx.textAlign = "center";
+
+        // X-axis label
+        ctx.fillText("位置 (cm)", width / 2, height - 10);
+
+        // Y-axis label
+        ctx.save();
+        ctx.translate(15, height / 2);
+        ctx.rotate(-Math.PI / 2);
+        ctx.fillText("湿度 (%)", 0, 0);
+        ctx.restore();
+
+        // Draw grid lines and labels
+        ctx.strokeStyle = "#E0E0E0";
+        ctx.lineWidth = 1;
+        ctx.fillStyle = "#757575";
+        ctx.font = "10px Arial";
+
+        // Y-axis grid (0-100%)
+        for (let i = 0; i <= 10; i++) {
+          const y = height - padding - (i * chartHeight) / 10;
+          ctx.beginPath();
+          ctx.moveTo(padding, y);
+          ctx.lineTo(width - padding, y);
+          ctx.stroke();
+
+          ctx.textAlign = "right";
+          ctx.fillText((i * 10).toString(), padding - 5, y + 3);
+        }
+
+        // X-axis grid (0-21cm)
+        for (let i = 0; i <= 21; i += 3) {
+          const x = padding + (i * chartWidth) / 21;
+          ctx.beginPath();
+          ctx.moveTo(x, padding);
+          ctx.lineTo(x, height - padding);
+          ctx.stroke();
+
+          ctx.textAlign = "center";
+          ctx.fillText(i.toString(), x, height - padding + 15);
+        }
+
+        // Draw data points and line
+        const history = measurementHistory;
+
+        if (history.length === 0) {
+          ctx.fillStyle = "#757575";
+          ctx.font = "14px Arial";
+          ctx.textAlign = "center";
+          ctx.fillText("暂无数据", width / 2, height / 2);
+          return;
+        }
+
+        // Sort by position for proper line drawing
+        const sortedHistory = [...history].sort(
+          (a, b) => a.position - b.position
+        );
+
+        // Draw line
+        ctx.strokeStyle = "#2196F3";
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+
+        sortedHistory.forEach((point, index) => {
+          const x = padding + (point.position * chartWidth) / 21;
+          const y = height - padding - (point.moisture * chartHeight) / 100;
+
+          if (index === 0) {
+            ctx.moveTo(x, y);
+          } else {
+            ctx.lineTo(x, y);
+          }
+        });
+
+        ctx.stroke();
+
+        // Draw data points
+        sortedHistory.forEach((point) => {
+          const x = padding + (point.position * chartWidth) / 21;
+          const y = height - padding - (point.moisture * chartHeight) / 100;
+
+          // Determine color based on moisture level
+          let color;
+          if (point.moisture < 5) {
+            color = "#4CAF50"; // Green - dry
+          } else if (point.moisture < 30) {
+            color = "#FFC107"; // Yellow
+          } else if (point.moisture < 60) {
+            color = "#FF9800"; // Orange
+          } else {
+            color = "#F44336"; // Red
+          }
+
+          ctx.fillStyle = color;
+          ctx.beginPath();
+          ctx.arc(x, y, 4, 0, 2 * Math.PI);
+          ctx.fill();
+
+          // Draw outline
+          ctx.strokeStyle = "#FFFFFF";
+          ctx.lineWidth = 2;
+          ctx.stroke();
+        });
+      }
+
+      // Redraw on window resize
+      window.addEventListener("resize", drawChart);
+    </script>
+  </body>
+</html>

@@ -1,0 +1,271 @@
+/* Moisture Sensor Module Specific Styles */
+
+/* ========================================
+   Moisture Display Section
+   ======================================== */
+
+.moisture-display-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: var(--spacing-xl);
+  background: linear-gradient(
+    135deg,
+    var(--primary-light) 0%,
+    var(--surface-color) 100%
+  );
+  border-radius: var(--border-radius-lg);
+  margin-bottom: var(--spacing-md);
+}
+
+/* Moisture Value Display with Color Coding */
+.moisture-value {
+  font-size: 64px;
+  font-weight: 700;
+  line-height: 1;
+  margin-bottom: var(--spacing-sm);
+  transition: color 0.3s ease;
+}
+
+/* Color coding based on moisture levels */
+/* Green: < 5% (Dry) */
+.moisture-value.dry {
+  color: #4caf50;
+}
+
+/* Yellow: 5-30% (Low moisture) */
+.moisture-value.low {
+  color: #ffc107;
+}
+
+/* Orange: 30-60% (Medium moisture) */
+.moisture-value.medium {
+  color: #ff9800;
+}
+
+/* Red: > 60% (High moisture) */
+.moisture-value.high {
+  color: #f44336;
+}
+
+.moisture-label {
+  font-size: var(--font-size-lg);
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+/* ========================================
+   Paper Status Indicator
+   ======================================== */
+
+.paper-status-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-md);
+  padding: var(--spacing-md);
+  background-color: var(--background-color);
+  border-radius: var(--border-radius);
+  margin-top: var(--spacing-md);
+}
+
+.paper-status-icon {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  transition: all 0.3s ease;
+}
+
+/* Paper present indicator - green with glow effect */
+.paper-status-icon.present {
+  background-color: var(--secondary-color);
+  box-shadow: 0 0 10px rgba(76, 175, 80, 0.5);
+}
+
+/* Paper absent indicator - gray */
+.paper-status-icon.absent {
+  background-color: var(--text-secondary);
+}
+
+.paper-status-text {
+  font-size: var(--font-size-lg);
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+/* ========================================
+   Control Buttons
+   ======================================== */
+
+.control-buttons-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--spacing-sm);
+  margin-top: var(--spacing-md);
+}
+
+.control-btn {
+  padding: var(--spacing-md);
+  font-size: var(--font-size-base);
+  font-weight: 600;
+  border: 2px solid transparent;
+  transition: all 0.2s ease;
+}
+
+.control-btn:hover {
+  transform: translateY(-2px);
+}
+
+/* Measure button - primary blue */
+.control-btn.measure {
+  background-color: var(--primary-color);
+  color: white;
+}
+
+.control-btn.measure:hover {
+  background-color: var(--primary-dark);
+}
+
+/* Calibrate dry button - green */
+.control-btn.calibrate-dry {
+  background-color: var(--secondary-color);
+  color: white;
+}
+
+.control-btn.calibrate-dry:hover {
+  background-color: #45a049;
+}
+
+/* Calibrate wet button - orange/warning */
+.control-btn.calibrate-wet {
+  background-color: var(--warning-color);
+  color: white;
+}
+
+.control-btn.calibrate-wet:hover {
+  background-color: #f57c00;
+}
+
+/* Clear data button - red */
+.control-btn.clear-data {
+  background-color: var(--error-color);
+  color: white;
+}
+
+.control-btn.clear-data:hover {
+  background-color: #d32f2f;
+}
+
+/* ========================================
+   Chart Container
+   ======================================== */
+
+.chart-container {
+  position: relative;
+  width: 100%;
+  height: 400px;
+  background-color: var(--surface-color);
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius);
+  padding: var(--spacing-md);
+}
+
+#moisture-chart {
+  width: 100%;
+  height: 100%;
+}
+
+/* ========================================
+   Data Info Display
+   ======================================== */
+
+.data-info {
+  display: flex;
+  justify-content: space-around;
+  padding: var(--spacing-md);
+  background-color: var(--background-color);
+  border-radius: var(--border-radius);
+  margin-top: var(--spacing-md);
+}
+
+.data-info-item {
+  text-align: center;
+}
+
+.data-info-label {
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+  margin-bottom: var(--spacing-xs);
+}
+
+.data-info-value {
+  font-size: var(--font-size-xl);
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+/* ========================================
+   Status Messages
+   ======================================== */
+
+.status-message {
+  padding: var(--spacing-md);
+  border-radius: var(--border-radius);
+  margin-top: var(--spacing-md);
+  animation: fadeInDown 0.3s ease-out;
+}
+
+@keyframes fadeInDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Success message - green */
+.status-message.success {
+  background-color: #e8f5e9;
+  color: #2e7d32;
+  border-left: 4px solid var(--secondary-color);
+}
+
+/* Error message - red */
+.status-message.error {
+  background-color: #ffebee;
+  color: #c62828;
+  border-left: 4px solid var(--error-color);
+}
+
+/* Info message - blue */
+.status-message.info {
+  background-color: #e3f2fd;
+  color: #1565c0;
+  border-left: 4px solid var(--primary-color);
+}
+
+/* ========================================
+   Responsive Styles
+   ======================================== */
+
+@media (max-width: 768px) {
+  .moisture-value {
+    font-size: 48px;
+  }
+
+  .control-buttons-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .chart-container {
+    height: 300px;
+  }
+
+  .data-info {
+    flex-direction: column;
+    gap: var(--spacing-md);
+  }
+}
