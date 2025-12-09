@@ -805,7 +805,11 @@
    */
   function updatePositionDisplay(revolutions, position_mm) {
     document.getElementById('position-revolutions').textContent = revolutions.toFixed(2);
-    document.getElementById('position-mm').textContent = position_mm.toFixed(2);
+    // 如果是接近整数的值，显示为整数；否则显示1位小数
+    const mmValue = Math.abs(position_mm - Math.round(position_mm)) < 0.01
+      ? Math.round(position_mm).toString()
+      : position_mm.toFixed(1);
+    document.getElementById('position-mm').textContent = mmValue;
   }
 
   /**

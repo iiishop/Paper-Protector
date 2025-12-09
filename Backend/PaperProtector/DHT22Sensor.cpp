@@ -8,10 +8,14 @@ DHT22Sensor::DHT22Sensor(SerialPubSub *pubsub, int dhtPin)
     : _pubsub(pubsub),
       _dhtPin(dhtPin),
       _lastReadTime(0),
-      _readInterval(500), // 500ms最快读取间隔(DHT22最快2秒,但我们用500ms以便快速响应)
+      _readInterval(200), // 200ms读取间隔，更快响应
       _startTime(0),
       _lastTemperature(NAN),
-      _lastHumidity(NAN)
+      _lastHumidity(NAN),
+      _emaTemperature(NAN),
+      _emaHumidity(NAN),
+      _emaInitialized(false),
+      _emaAlpha(0.3) // 0.3平滑系数：平衡响应速度和稳定性
 {
     _instance = this;
     _dht = new DHT(_dhtPin, DHT22);
@@ -38,8 +42,8 @@ void DHT22Sensor::loop()
 {
     unsigned long currentTime = millis();
 
-    // 等待传感器启动稳定(2秒)
-    if (currentTime - _startTime < 2000)
+    // 缩短启动等待时间到500ms（DHT22通常在这个时间后就能读取）
+    if (currentTime - _startTime < 500)
     {
         return;
     }
@@ -76,9 +80,24 @@ void DHT22Sensor::readAndPublish()
         return;
     }
 
-    // 保存最新值
-    _lastTemperature = temperature;
-    _lastHumidity = humidity;
+    // 应用指数移动平均(EMA)滤波
+    if (!_emaInitialized)
+    {
+        // 首次读取，直接使用原始值初始化
+        _emaTemperature = temperature;
+        _emaHumidity = humidity;
+        _emaInitialized = true;
+    }
+    else
+    {
+        // EMA公式: EMA(t) = α × 新值 + (1-α) × EMA(t-1)
+        _emaTemperature = _emaAlpha * temperature + (1.0 - _emaAlpha) * _emaTemperature;
+        _emaHumidity = _emaAlpha * humidity + (1.0 - _emaAlpha) * _emaHumidity;
+    }
+
+    // 使用滤波后的值
+    _lastTemperature = _emaTemperature;
+    _lastHumidity = _emaHumidity;
 
     // 发布数据
     publishReading();

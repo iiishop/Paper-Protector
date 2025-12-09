@@ -26,6 +26,12 @@ private:
     float _lastTemperature;
     float _lastHumidity;
 
+    // EMA滤波器变量
+    float _emaTemperature;
+    float _emaHumidity;
+    bool _emaInitialized;
+    float _emaAlpha; // 平滑系数 (0-1, 越大响应越快)
+
     static void queryCallback(const char *topic, const char *payload);
     static DHT22Sensor *_instance;
 

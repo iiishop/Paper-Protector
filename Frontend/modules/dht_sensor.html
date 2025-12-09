@@ -474,7 +474,7 @@
             const calibratedTemp = rawTemperature - dhtState.tempOffset;
 
             document.getElementById("temperature-value").textContent =
-                calibratedTemp.toFixed(1);
+                formatWithSign(calibratedTemp, 1);
             document.getElementById("temperature-timestamp").textContent =
                 new Date().toLocaleTimeString();
         }
@@ -493,7 +493,7 @@
             const calibratedHum = rawHumidity - dhtState.humidityOffset;
 
             document.getElementById("humidity-value").textContent =
-                calibratedHum.toFixed(1);
+                formatWithSign(calibratedHum, 1);
             document.getElementById("humidity-timestamp").textContent =
                 new Date().toLocaleTimeString();
         }
@@ -530,12 +530,22 @@
     }
 
     /**
+     * Format number with sign (ensures negative sign is displayed)
+     */
+    function formatWithSign(value, decimals = 1) {
+        const formatted = value.toFixed(decimals);
+        // toFixed already includes the negative sign, but we ensure it's there
+        return formatted;
+    }
+
+    /**
      * Update current readings display
      */
     function updateCurrentReadings(temperature, humidity) {
         document.getElementById("temperature-value").textContent =
-            temperature.toFixed(1);
-        document.getElementById("humidity-value").textContent = humidity.toFixed(1);
+            formatWithSign(temperature, 1);
+        document.getElementById("humidity-value").textContent =
+            formatWithSign(humidity, 1);
 
         const timestamp = new Date().toLocaleTimeString();
         document.getElementById("temperature-timestamp").textContent = timestamp;
