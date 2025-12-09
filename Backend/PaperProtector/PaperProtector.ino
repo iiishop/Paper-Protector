@@ -28,10 +28,8 @@ void setup()
 {
     pubsub.begin(9600);
 
-    // 启动消息
     delay(1000);
 
-    // 清空串口缓冲区（防止启动时的垃圾数据）
     while (Serial.available())
     {
         Serial.read();
