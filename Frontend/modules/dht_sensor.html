@@ -1,0 +1,806 @@
+<style>
+    /* DHT Sensor Module Specific Styles */
+
+    /* Current Reading Cards */
+    .readings-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: var(--spacing-md);
+        margin-bottom: var(--spacing-lg);
+    }
+
+    .reading-card {
+        padding: var(--spacing-lg);
+        border-radius: var(--border-radius);
+        text-align: center;
+        color: white;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .reading-card.temperature {
+        background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    }
+
+    .reading-card.humidity {
+        background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+    }
+
+    .reading-label {
+        font-size: var(--font-size-sm);
+        opacity: 0.9;
+        margin-bottom: var(--spacing-xs);
+        text-transform: uppercase;
+        letter-spacing: 1px;
+    }
+
+    .reading-value {
+        font-size: 3rem;
+        font-weight: 700;
+        margin: var(--spacing-sm) 0;
+        text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.2);
+    }
+
+    .reading-unit {
+        font-size: var(--font-size-lg);
+        opacity: 0.8;
+    }
+
+    .reading-timestamp {
+        font-size: var(--font-size-xs);
+        opacity: 0.7;
+        margin-top: var(--spacing-xs);
+    }
+
+    /* Chart Container */
+    .chart-container {
+        position: relative;
+        height: 400px;
+        background: white;
+        border-radius: var(--border-radius);
+        padding: var(--spacing-md);
+        margin-bottom: var(--spacing-lg);
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    }
+
+    /* Chart Controls */
+    .chart-controls {
+        display: flex;
+        gap: var(--spacing-sm);
+        margin-bottom: var(--spacing-md);
+        flex-wrap: wrap;
+    }
+
+    .chart-controls .btn {
+        flex: 1;
+        min-width: 100px;
+    }
+
+    /* Stats Display */
+    .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: var(--spacing-md);
+        margin-bottom: var(--spacing-lg);
+    }
+
+    .stat-card {
+        padding: var(--spacing-md);
+        background: var(--background-color);
+        border-radius: var(--border-radius);
+        border-left: 4px solid var(--primary-color);
+    }
+
+    .stat-card h4 {
+        font-size: var(--font-size-sm);
+        color: var(--text-secondary);
+        margin-bottom: var(--spacing-xs);
+    }
+
+    .stat-value {
+        font-size: var(--font-size-xl);
+        font-weight: 600;
+        color: var(--text-primary);
+    }
+
+    /* Loading State */
+    .loading-indicator {
+        text-align: center;
+        padding: var(--spacing-lg);
+        color: var(--text-secondary);
+    }
+
+    .loading-spinner {
+        display: inline-block;
+        width: 40px;
+        height: 40px;
+        border: 4px solid var(--background-color);
+        border-top-color: var(--primary-color);
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+        to {
+            transform: rotate(360deg);
+        }
+    }
+
+    /* Error Display */
+    .error-message {
+        background-color: #fee;
+        color: #c33;
+        padding: var(--spacing-md);
+        border-radius: var(--border-radius);
+        border-left: 4px solid #c33;
+        margin-bottom: var(--spacing-md);
+    }
+</style>
+
+<div class="module-container">
+    <div class="module-header">
+        <h2 class="module-title">🌡️ 温湿度传感器 (DHT22)</h2>
+        <div class="connection-status" id="dht-connection-status">
+            <span class="status-dot"></span>
+            <span class="status-text">连接中...</span>
+        </div>
+    </div>
+
+    <!-- Current Readings -->
+    <div class="module-section">
+        <h3 class="module-section-title">实时读数</h3>
+        <div class="readings-grid">
+            <div class="reading-card temperature">
+                <div class="reading-label">温度</div>
+                <div class="reading-value" id="temperature-value">--</div>
+                <div class="reading-unit">°C</div>
+                <div class="reading-timestamp" id="temperature-timestamp">等待数据...</div>
+            </div>
+            <div class="reading-card humidity">
+                <div class="reading-label">湿度</div>
+                <div class="reading-value" id="humidity-value">--</div>
+                <div class="reading-unit">%</div>
+                <div class="reading-timestamp" id="humidity-timestamp">等待数据...</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Calibration Controls -->
+    <div class="module-section">
+        <h3 class="module-section-title">校准设置</h3>
+        <div class="chart-controls">
+            <button class="btn btn-warning" id="calibrate-temp-btn">🎯 温度调零</button>
+            <button class="btn btn-warning" id="calibrate-humidity-btn">💧 湿度调零</button>
+            <button class="btn btn-danger" id="reset-calibration-btn">🔄 重置校准</button>
+        </div>
+        <div id="calibration-info"
+            style="margin-top: 10px; padding: 10px; background: #f0f0f0; border-radius: 4px; font-size: 0.9em; display: none;">
+            <strong>校准偏移:</strong> 温度 <span id="temp-offset">0.0</span>°C, 湿度 <span id="humidity-offset">0.0</span>%
+        </div>
+    </div>
+
+    <!-- Chart Controls -->
+    <div class="module-section">
+        <h3 class="module-section-title">图表控制</h3>
+        <div class="chart-controls">
+            <button class="btn btn-primary" id="clear-chart-btn">清空图表</button>
+            <button class="btn btn-secondary" id="toggle-temperature-btn">温度: 显示</button>
+            <button class="btn btn-secondary" id="toggle-humidity-btn">湿度: 显示</button>
+            <button class="btn btn-info" id="export-data-btn">导出数据</button>
+        </div>
+    </div>
+
+    <!-- Chart -->
+    <div class="module-section">
+        <h3 class="module-section-title">历史数据</h3>
+        <div class="chart-container">
+            <canvas id="dht-chart"></canvas>
+        </div>
+    </div>
+
+    <!-- Statistics -->
+    <div class="module-section">
+        <h3 class="module-section-title">统计信息</h3>
+        <div class="stats-grid">
+            <div class="stat-card">
+                <h4>温度范围</h4>
+                <div class="stat-value" id="temp-range">-- ~ -- °C</div>
+            </div>
+            <div class="stat-card">
+                <h4>湿度范围</h4>
+                <div class="stat-value" id="humidity-range">-- ~ -- %</div>
+            </div>
+            <div class="stat-card">
+                <h4>平均温度</h4>
+                <div class="stat-value" id="temp-avg">-- °C</div>
+            </div>
+            <div class="stat-card">
+                <h4>平均湿度</h4>
+                <div class="stat-value" id="humidity-avg">-- %</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Error Display -->
+    <div id="dht-error-container"></div>
+</div>
+
+<script>
+    /**
+     * DHT22 Sensor Module
+     * Displays real-time temperature and humidity data with charts
+     */
+
+    // Debug: Check if Chart.js is loaded
+    console.log("Chart.js available:", typeof Chart !== 'undefined');
+
+    // Module state
+    let dhtState = {
+        pubsubClient: null,
+        isConnected: false,
+        chart: null,
+        maxDataPoints: 100, // 最多显示100个数据点
+        temperatureData: [],
+        humidityData: [],
+        timestamps: [],
+        showTemperature: true,
+        showHumidity: true,
+        // Calibration offsets
+        tempOffset: 0,
+        humidityOffset: 0,
+        // Store raw sensor values for calibration
+        lastRawTemperature: null,
+        lastRawHumidity: null,
+        stats: {
+            tempMin: null,
+            tempMax: null,
+            tempSum: 0,
+            tempCount: 0,
+            humidityMin: null,
+            humidityMax: null,
+            humiditySum: 0,
+            humidityCount: 0
+        }
+    };
+
+    /**
+     * Initialize DHT module
+     */
+    function initializeDHTModule(pubsubClient) {
+        console.log("Initializing DHT22 Sensor module...");
+
+        dhtState.pubsubClient = pubsubClient;
+        dhtState.isConnected = pubsubClient.isConnected();
+
+        // Check if Chart.js is loaded, if not wait a bit
+        if (typeof Chart === 'undefined') {
+            console.warn("Chart.js not loaded yet, waiting...");
+            let retryCount = 0;
+            const maxRetries = 5;
+
+            const checkChart = setInterval(() => {
+                retryCount++;
+                if (typeof Chart !== 'undefined') {
+                    console.log("Chart.js loaded successfully");
+                    clearInterval(checkChart);
+                    initializeChart();
+                } else if (retryCount >= maxRetries) {
+                    console.error("Chart.js failed to load after 5 attempts. Chart will be disabled.");
+                    clearInterval(checkChart);
+                    document.querySelector('.chart-container').innerHTML =
+                        '<div style="text-align:center;padding:40px;color:#999;">图表加载失败，请检查网络连接</div>';
+                }
+            }, 1000);
+        } else {
+            // Initialize chart immediately if Chart.js is already loaded
+            initializeChart();
+        }
+
+        // Subscribe to DHT topics
+        console.log("Subscribing to DHT topics...");
+        pubsubClient.subscribe("dht/data", handleDHTData);
+        pubsubClient.subscribe("dht/temperature", handleTemperature);
+        pubsubClient.subscribe("dht/humidity", handleHumidity);
+        pubsubClient.subscribe("dht/error", handleDHTError);
+
+        // Set up event listeners
+        setupCalibrationControls();
+        setupChartControls();
+        setupConnectionMonitoring();
+
+        // Load saved calibration
+        loadCalibration();
+
+        // Request initial data
+        setTimeout(() => {
+            console.log("Requesting initial DHT data...");
+            pubsubClient.publish("dht/query", "");
+        }, 1000);
+
+        console.log("DHT22 Sensor module initialized successfully");
+    }
+
+    /**
+     * Initialize Chart.js chart
+     */
+    function initializeChart() {
+        if (typeof Chart === 'undefined') {
+            console.error("Chart.js is not available");
+            return;
+        }
+
+        const ctx = document.getElementById("dht-chart").getContext("2d");
+
+        dhtState.chart = new Chart(ctx, {
+            type: "line",
+            data: {
+                labels: dhtState.timestamps,
+                datasets: [
+                    {
+                        label: "温度 (°C)",
+                        data: dhtState.temperatureData,
+                        borderColor: "#f5576c",
+                        backgroundColor: "rgba(245, 87, 108, 0.1)",
+                        yAxisID: "y-temperature",
+                        tension: 0.4,
+                        pointRadius: 3,
+                        pointHoverRadius: 5,
+                        hidden: false
+                    },
+                    {
+                        label: "湿度 (%)",
+                        data: dhtState.humidityData,
+                        borderColor: "#4facfe",
+                        backgroundColor: "rgba(79, 172, 254, 0.1)",
+                        yAxisID: "y-humidity",
+                        tension: 0.4,
+                        pointRadius: 3,
+                        pointHoverRadius: 5,
+                        hidden: false
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: {
+                    mode: "index",
+                    intersect: false
+                },
+                plugins: {
+                    legend: {
+                        position: "top"
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function (context) {
+                                let label = context.dataset.label || "";
+                                if (label) {
+                                    label += ": ";
+                                }
+                                label += context.parsed.y.toFixed(1);
+                                return label;
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        display: true,
+                        title: {
+                            display: true,
+                            text: "时间"
+                        }
+                    },
+                    "y-temperature": {
+                        type: "linear",
+                        display: true,
+                        position: "left",
+                        title: {
+                            display: true,
+                            text: "温度 (°C)"
+                        },
+                        grid: {
+                            drawOnChartArea: true
+                        }
+                    },
+                    "y-humidity": {
+                        type: "linear",
+                        display: true,
+                        position: "right",
+                        title: {
+                            display: true,
+                            text: "湿度 (%)"
+                        },
+                        grid: {
+                            drawOnChartArea: false
+                        },
+                        min: 0,
+                        max: 100
+                    }
+                }
+            }
+        });
+    }
+
+    /**
+     * Handle DHT data update (combined temperature and humidity)
+     */
+    function handleDHTData(topic, payload) {
+        console.log(`DHT data: ${payload}`);
+
+        // Parse payload: "temp,humidity"
+        const parts = payload.split(",");
+        if (parts.length !== 2) {
+            console.error("Invalid DHT data format");
+            return;
+        }
+
+        const rawTemperature = parseFloat(parts[0]);
+        const rawHumidity = parseFloat(parts[1]);
+
+        if (isNaN(rawTemperature) || isNaN(rawHumidity)) {
+            console.error("Invalid DHT data values");
+            return;
+        }
+
+        // Store raw values for calibration
+        dhtState.lastRawTemperature = rawTemperature;
+        dhtState.lastRawHumidity = rawHumidity;
+
+        // Apply calibration offsets
+        const temperature = rawTemperature - dhtState.tempOffset;
+        const humidity = rawHumidity - dhtState.humidityOffset;
+
+        // Add data to chart
+        addDataToChart(temperature, humidity);
+
+        // Update current readings
+        updateCurrentReadings(temperature, humidity);
+
+        // Update statistics
+        updateStatistics(temperature, humidity);
+    }
+
+    /**
+     * Handle temperature update
+     */
+    function handleTemperature(topic, payload) {
+        const rawTemperature = parseFloat(payload);
+        if (!isNaN(rawTemperature)) {
+            // Store raw value
+            dhtState.lastRawTemperature = rawTemperature;
+
+            // Apply calibration offset
+            const calibratedTemp = rawTemperature - dhtState.tempOffset;
+
+            document.getElementById("temperature-value").textContent =
+                calibratedTemp.toFixed(1);
+            document.getElementById("temperature-timestamp").textContent =
+                new Date().toLocaleTimeString();
+        }
+    }
+
+    /**
+     * Handle humidity update
+     */
+    function handleHumidity(topic, payload) {
+        const rawHumidity = parseFloat(payload);
+        if (!isNaN(rawHumidity)) {
+            // Store raw value
+            dhtState.lastRawHumidity = rawHumidity;
+
+            // Apply calibration offset
+            const calibratedHum = rawHumidity - dhtState.humidityOffset;
+
+            document.getElementById("humidity-value").textContent =
+                calibratedHum.toFixed(1);
+            document.getElementById("humidity-timestamp").textContent =
+                new Date().toLocaleTimeString();
+        }
+    }
+
+    /**
+     * Handle DHT error
+     */
+    function handleDHTError(topic, payload) {
+        showError(`传感器错误: ${payload}`);
+    }
+
+    /**
+     * Add data to chart
+     */
+    function addDataToChart(temperature, humidity) {
+        const timestamp = new Date().toLocaleTimeString();
+
+        dhtState.timestamps.push(timestamp);
+        dhtState.temperatureData.push(temperature);
+        dhtState.humidityData.push(humidity);
+
+        // Limit data points
+        if (dhtState.timestamps.length > dhtState.maxDataPoints) {
+            dhtState.timestamps.shift();
+            dhtState.temperatureData.shift();
+            dhtState.humidityData.shift();
+        }
+
+        // Update chart if it exists
+        if (dhtState.chart) {
+            dhtState.chart.update("none"); // 'none' for no animation (faster)
+        }
+    }
+
+    /**
+     * Update current readings display
+     */
+    function updateCurrentReadings(temperature, humidity) {
+        document.getElementById("temperature-value").textContent =
+            temperature.toFixed(1);
+        document.getElementById("humidity-value").textContent = humidity.toFixed(1);
+
+        const timestamp = new Date().toLocaleTimeString();
+        document.getElementById("temperature-timestamp").textContent = timestamp;
+        document.getElementById("humidity-timestamp").textContent = timestamp;
+    }
+
+    /**
+     * Update statistics
+     */
+    function updateStatistics(temperature, humidity) {
+        const stats = dhtState.stats;
+
+        // Update temperature stats
+        if (stats.tempMin === null || temperature < stats.tempMin) {
+            stats.tempMin = temperature;
+        }
+        if (stats.tempMax === null || temperature > stats.tempMax) {
+            stats.tempMax = temperature;
+        }
+        stats.tempSum += temperature;
+        stats.tempCount++;
+
+        // Update humidity stats
+        if (stats.humidityMin === null || humidity < stats.humidityMin) {
+            stats.humidityMin = humidity;
+        }
+        if (stats.humidityMax === null || humidity > stats.humidityMax) {
+            stats.humidityMax = humidity;
+        }
+        stats.humiditySum += humidity;
+        stats.humidityCount++;
+
+        // Update display
+        document.getElementById("temp-range").textContent =
+            `${stats.tempMin.toFixed(1)} ~ ${stats.tempMax.toFixed(1)} °C`;
+        document.getElementById("humidity-range").textContent =
+            `${stats.humidityMin.toFixed(1)} ~ ${stats.humidityMax.toFixed(1)} %`;
+        document.getElementById("temp-avg").textContent =
+            `${(stats.tempSum / stats.tempCount).toFixed(1)} °C`;
+        document.getElementById("humidity-avg").textContent =
+            `${(stats.humiditySum / stats.humidityCount).toFixed(1)} %`;
+    }
+
+    /**
+     * Setup calibration controls
+     */
+    function setupCalibrationControls() {
+        // Temperature calibration button - set current reading as zero baseline
+        document.getElementById("calibrate-temp-btn").addEventListener("click", () => {
+            if (dhtState.lastRawTemperature === null) {
+                alert("请等待温度数据");
+                return;
+            }
+
+            const displayedTemp = dhtState.lastRawTemperature - dhtState.tempOffset;
+
+            if (confirm(`将当前温度读数 ${displayedTemp.toFixed(1)}°C 设为基准(0°C)？\n之后的温度将显示为相对于此基准的变化值。`)) {
+                // Set offset to raw value, so calibrated value becomes 0
+                dhtState.tempOffset = dhtState.lastRawTemperature;
+                saveCalibration();
+                updateCalibrationDisplay();
+
+                alert(`温度调零完成！`);
+            }
+        });
+
+        // Humidity calibration button - set current reading as zero baseline
+        document.getElementById("calibrate-humidity-btn").addEventListener("click", () => {
+            if (dhtState.lastRawHumidity === null) {
+                alert("请等待湿度数据");
+                return;
+            }
+
+            const displayedHum = dhtState.lastRawHumidity - dhtState.humidityOffset;
+
+            if (confirm(`将当前湿度读数 ${displayedHum.toFixed(1)}% 设为基准(0%)？\n之后的湿度将显示为相对于此基准的变化值。`)) {
+                // Set offset to raw value, so calibrated value becomes 0
+                dhtState.humidityOffset = dhtState.lastRawHumidity;
+                saveCalibration();
+                updateCalibrationDisplay();
+
+                alert(`湿度调零完成！`);
+            }
+        });
+
+        // Reset calibration button
+        document.getElementById("reset-calibration-btn").addEventListener("click", () => {
+            if (confirm("确定要重置所有校准吗？")) {
+                dhtState.tempOffset = 0;
+                dhtState.humidityOffset = 0;
+                saveCalibration();
+                updateCalibrationDisplay();
+                alert("校准已重置");
+            }
+        });
+    }
+
+    /**
+     * Save calibration to localStorage
+     */
+    function saveCalibration() {
+        localStorage.setItem("dht_temp_offset", dhtState.tempOffset.toString());
+        localStorage.setItem("dht_humidity_offset", dhtState.humidityOffset.toString());
+    }
+
+    /**
+     * Load calibration from localStorage
+     */
+    function loadCalibration() {
+        const tempOffset = localStorage.getItem("dht_temp_offset");
+        const humidityOffset = localStorage.getItem("dht_humidity_offset");
+
+        if (tempOffset !== null) {
+            dhtState.tempOffset = parseFloat(tempOffset);
+        }
+        if (humidityOffset !== null) {
+            dhtState.humidityOffset = parseFloat(humidityOffset);
+        }
+
+        updateCalibrationDisplay();
+    }
+
+    /**
+     * Update calibration display
+     */
+    function updateCalibrationDisplay() {
+        document.getElementById("temp-offset").textContent = dhtState.tempOffset.toFixed(1);
+        document.getElementById("humidity-offset").textContent = dhtState.humidityOffset.toFixed(1);
+
+        const infoDiv = document.getElementById("calibration-info");
+        if (dhtState.tempOffset !== 0 || dhtState.humidityOffset !== 0) {
+            infoDiv.style.display = "block";
+        } else {
+            infoDiv.style.display = "none";
+        }
+    }
+
+    /**
+     * Setup chart controls
+     */
+    function setupChartControls() {
+        // Clear chart button
+        document.getElementById("clear-chart-btn").addEventListener("click", () => {
+            dhtState.timestamps = [];
+            dhtState.temperatureData = [];
+            dhtState.humidityData = [];
+            dhtState.stats = {
+                tempMin: null,
+                tempMax: null,
+                tempSum: 0,
+                tempCount: 0,
+                humidityMin: null,
+                humidityMax: null,
+                humiditySum: 0,
+                humidityCount: 0
+            };
+
+            dhtState.chart.update();
+
+            // Reset stats display
+            document.getElementById("temp-range").textContent = "-- ~ -- °C";
+            document.getElementById("humidity-range").textContent = "-- ~ -- %";
+            document.getElementById("temp-avg").textContent = "-- °C";
+            document.getElementById("humidity-avg").textContent = "-- %";
+        });
+
+        // Toggle temperature button
+        const tempBtn = document.getElementById("toggle-temperature-btn");
+        tempBtn.addEventListener("click", () => {
+            dhtState.showTemperature = !dhtState.showTemperature;
+            dhtState.chart.data.datasets[0].hidden = !dhtState.showTemperature;
+            tempBtn.textContent = `温度: ${dhtState.showTemperature ? "显示" : "隐藏"}`;
+            dhtState.chart.update();
+        });
+
+        // Toggle humidity button
+        const humBtn = document.getElementById("toggle-humidity-btn");
+        humBtn.addEventListener("click", () => {
+            dhtState.showHumidity = !dhtState.showHumidity;
+            dhtState.chart.data.datasets[1].hidden = !dhtState.showHumidity;
+            humBtn.textContent = `湿度: ${dhtState.showHumidity ? "显示" : "隐藏"}`;
+            dhtState.chart.update();
+        });
+
+        // Export data button
+        document.getElementById("export-data-btn").addEventListener("click", () => {
+            exportData();
+        });
+    }
+
+    /**
+     * Export data as CSV
+     */
+    function exportData() {
+        let csv = "时间,温度(°C),湿度(%)\n";
+
+        for (let i = 0; i < dhtState.timestamps.length; i++) {
+            csv += `${dhtState.timestamps[i]},${dhtState.temperatureData[i]},${dhtState.humidityData[i]}\n`;
+        }
+
+        const blob = new Blob([csv], { type: "text/csv" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `dht22_data_${new Date().toISOString()}.csv`;
+        a.click();
+        URL.revokeObjectURL(url);
+    }
+
+    /**
+     * Setup connection monitoring
+     */
+    function setupConnectionMonitoring() {
+        setInterval(() => {
+            const isConnected = dhtState.pubsubClient?.isConnected() || false;
+
+            if (isConnected !== dhtState.isConnected) {
+                dhtState.isConnected = isConnected;
+                updateConnectionStatus(isConnected);
+            }
+        }, 1000);
+    }
+
+    /**
+     * Update connection status display
+     */
+    function updateConnectionStatus(isConnected) {
+        const statusElement = document.getElementById("dht-connection-status");
+        const statusDot = statusElement.querySelector(".status-dot");
+        const statusText = statusElement.querySelector(".status-text");
+
+        if (isConnected) {
+            statusDot.style.backgroundColor = "#4caf50";
+            statusText.textContent = "已连接";
+        } else {
+            statusDot.style.backgroundColor = "#f44336";
+            statusText.textContent = "未连接";
+        }
+    }
+
+    /**
+     * Show error message
+     */
+    function showError(message) {
+        const container = document.getElementById("dht-error-container");
+        const errorDiv = document.createElement("div");
+        errorDiv.className = "error-message";
+        errorDiv.textContent = message;
+
+        container.appendChild(errorDiv);
+
+        // Auto-remove after 5 seconds
+        setTimeout(() => {
+            errorDiv.remove();
+        }, 5000);
+    }
+
+    // Export initialization function
+    if (typeof window !== "undefined") {
+        window.initializeDHTModule = initializeDHTModule;
+    }
+
+    // Auto-initialize when module loads if pubsubClient is available
+    if (typeof pubsubClient !== "undefined" && pubsubClient) {
+        initializeDHTModule(pubsubClient);
+    }
+</script>

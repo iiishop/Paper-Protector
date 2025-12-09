@@ -101,20 +101,20 @@ bool SerialPubSub::publish(const char *topic, bool value)
 // 处理接收消息（在loop中调用）
 void SerialPubSub::loop()
 {
-    if (Serial.available() > 0)
-    {
-        // 调试：显示有数据可读
-        Serial.print("Avail:");
-        Serial.println(Serial.available());
-    }
+    // 调试输出已禁用以避免干扰通信
+    // if (Serial.available() > 0)
+    // {
+    //     Serial.print("Avail:");
+    //     Serial.println(Serial.available());
+    // }
 
     while (Serial.available() > 0)
     {
         char c = Serial.read();
 
         // 调试：显示接收到的字符（十六进制）
-        Serial.print("Byte:");
-        Serial.println((int)c, HEX);
+        // Serial.print("Byte:");
+        // Serial.println((int)c, HEX);
 
         // 检查消息边界（换行符）
         if (c == '\n' || c == '\r')
@@ -125,8 +125,8 @@ void SerialPubSub::loop()
                 receiveBuffer[bufferIndex] = '\0';
 
                 // 回显收到的消息（用于调试）
-                Serial.print("RX:");
-                Serial.println(receiveBuffer);
+                // Serial.print("RX:");
+                // Serial.println(receiveBuffer);
 
                 // 解析消息
                 parseMessage(receiveBuffer);
@@ -144,7 +144,7 @@ void SerialPubSub::loop()
             else
             {
                 // 缓冲区溢出，丢弃整个消息
-                Serial.println("BUF_OVERFLOW");
+                // Serial.println("BUF_OVERFLOW");
                 bufferIndex = 0;
             }
         }
@@ -178,10 +178,10 @@ void SerialPubSub::parseMessage(const char *message)
     const char *payload = colonPos + 1;
 
     // 调试：显示解析的主题和负载
-    Serial.print("T:");
-    Serial.print(topic);
-    Serial.print(" P:");
-    Serial.println(payload);
+    // Serial.print("T:");
+    // Serial.print(topic);
+    // Serial.print(" P:");
+    // Serial.println(payload);
 
     // 查找匹配的订阅并调用回调
     int matchCount = 0;
@@ -198,8 +198,8 @@ void SerialPubSub::parseMessage(const char *message)
     }
 
     // 调试：显示匹配数量
-    Serial.print("Match:");
-    Serial.println(matchCount);
+    // Serial.print("Match:");
+    // Serial.println(matchCount);
 }
 
 // 查找订阅

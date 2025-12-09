@@ -93,7 +93,14 @@ class SerialHandler:
         try:
             # Read until newline (message boundary)
             line = await self.reader.readuntil(b'\n')
-            message_str = line.decode('utf-8').strip()
+            
+            # Decode with error handling for invalid UTF-8
+            try:
+                message_str = line.decode('utf-8').strip()
+            except UnicodeDecodeError as e:
+                # Try with 'replace' to handle invalid bytes
+                message_str = line.decode('utf-8', errors='replace').strip()
+                logger.warning(f"Invalid UTF-8 in serial data (replaced): {line.hex()} -> {message_str}")
             
             if not message_str:
                 return None

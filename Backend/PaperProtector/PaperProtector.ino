@@ -1,11 +1,15 @@
 #include "SerialPubSub.h"
 #include "StepperMotor.h"
 #include "FanController.h"
+#include "DHT22Sensor.h"
+#include "Heater.h"
 // #include "MoistureSensor.h"  // 暂时不使用 AS7341 和 IR LED
 
 #define DIR_PIN 2
 #define STEP_PIN 3
 #define FAN_PIN 5
+#define DHT_PIN 8
+#define HEATER_PIN 6
 // #define IRLED_PIN 4  // 暂时不使用
 
 SerialPubSub pubsub;
@@ -13,6 +17,10 @@ SerialPubSub pubsub;
 StepperMotor stepper(&pubsub, DIR_PIN, STEP_PIN);
 
 FanController fan(&pubsub, FAN_PIN);
+
+DHT22Sensor dhtSensor(&pubsub, DHT_PIN);
+
+Heater heater(&pubsub, HEATER_PIN);
 
 // MoistureSensor moistureSensor(&pubsub, IRLED_PIN);  // 暂时不使用
 
@@ -34,6 +42,10 @@ void setup()
     stepper.begin();
 
     fan.begin();
+
+    dhtSensor.begin();
+
+    heater.begin();
 
     // 暂时不使用 AS7341 传感器和 IR LED
     // // 清空缓冲区
@@ -62,6 +74,10 @@ void loop()
     stepper.loop();
 
     fan.loop();
+
+    dhtSensor.loop();
+
+    heater.loop();
 
     // moistureSensor.loop();  // 暂时不使用
 }

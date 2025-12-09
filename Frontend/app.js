@@ -40,8 +40,14 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!moduleLoader.isModuleLoaded('fan_control')) {
                 loadFanControl();
             }
-            if (!moduleLoader.isModuleLoaded('moisture_sensor')) {
-                loadMoistureSensor();
+            // if (!moduleLoader.isModuleLoaded('moisture_sensor')) {
+            //     loadMoistureSensor();
+            // }
+            if (!moduleLoader.isModuleLoaded('dht_sensor')) {
+                loadDHTSensor();
+            }
+            if (!moduleLoader.isModuleLoaded('heater_control')) {
+                loadHeaterControl();
             }
         }
     });
@@ -83,6 +89,16 @@ function registerModules() {
     moduleLoader.registerModule('moisture_sensor', {
         path: 'modules/moisture_sensor.html',
         title: '湿度传感器'
+    });
+
+    moduleLoader.registerModule('dht_sensor', {
+        path: 'modules/dht_sensor.html',
+        title: 'DHT22温湿度传感器'
+    });
+
+    moduleLoader.registerModule('heater_control', {
+        path: 'modules/heater_control.html',
+        title: '加热器控制'
     });
 
     console.log('Modules registered');
@@ -138,6 +154,38 @@ async function loadMoistureSensor() {
         console.log('Moisture Sensor module loaded');
     } else {
         console.error('Failed to load Moisture Sensor module');
+    }
+}
+
+/**
+ * Load DHT Sensor module
+ */
+async function loadDHTSensor() {
+    console.log('Loading DHT Sensor module...');
+    const success = await moduleLoader.loadModule('dht_sensor', 'module-container');
+
+    if (success) {
+        console.log('DHT Sensor module loaded');
+        // Initialize DHT module with pubsub client
+        if (typeof window.initializeDHTModule === 'function') {
+            window.initializeDHTModule(pubsubClient);
+        }
+    } else {
+        console.error('Failed to load DHT Sensor module');
+    }
+}
+
+/**
+ * Load Heater Control module
+ */
+async function loadHeaterControl() {
+    console.log('Loading Heater Control module...');
+    const success = await moduleLoader.loadModule('heater_control', 'module-container');
+
+    if (success) {
+        console.log('Heater Control module loaded');
+    } else {
+        console.error('Failed to load Heater Control module');
     }
 }
 

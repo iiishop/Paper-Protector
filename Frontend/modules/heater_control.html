@@ -1,0 +1,266 @@
+<link rel="stylesheet" href="../styles/module.css" />
+
+<div class="module-header">
+  <h2 class="module-title">🔥 加热器控制</h2>
+</div>
+
+<div class="module-content">
+  <div class="module-section">
+    <h3 class="module-section-title">加热器状态</h3>
+    <div class="status-display">
+      <div class="status-icon stopped" id="heater-status-icon"></div>
+      <div class="status-text" id="heater-status-text">关闭</div>
+    </div>
+
+    <div class="speed-display-grid">
+      <div class="speed-display-item">
+        <div class="speed-display-label">当前功率</div>
+        <div class="speed-display-value" id="current-power-display">0</div>
+      </div>
+      <div class="speed-display-item">
+        <div class="speed-display-label">功率百分比</div>
+        <div class="speed-display-value" id="power-percentage-display">0%</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="module-section">
+    <h3 class="module-section-title">功率控制</h3>
+    <form class="module-form" id="heater-control-form">
+      <div class="module-form-group">
+        <label for="power-slider">功率滑块 (0-255)</label>
+        <div class="speed-slider-container">
+          <input type="range" id="power-slider" class="speed-slider" min="0" max="255" value="0" />
+          <div class="speed-value-display" id="slider-value-display">0</div>
+        </div>
+      </div>
+
+      <div class="speed-control-group">
+        <div class="module-form-group">
+          <label for="power-input">功率数值</label>
+          <input type="number" id="power-input" min="0" max="255" value="0" placeholder="0-255" />
+        </div>
+        <button type="submit" class="btn btn-primary">
+          设置功率
+        </button>
+      </div>
+    </form>
+
+    <div class="mt-md">
+      <strong>快捷控制:</strong>
+      <div class="quick-buttons-grid">
+        <button class="btn btn-secondary quick-btn" data-power="0">
+          关闭 (0)
+        </button>
+        <button class="btn btn-primary quick-btn" data-power="64">
+          低 (64)
+        </button>
+        <button class="btn btn-primary quick-btn" data-power="128">
+          中 (128)
+        </button>
+        <button class="btn btn-primary quick-btn" data-power="192">
+          高 (192)
+        </button>
+        <button class="btn btn-primary quick-btn" data-power="255">
+          最大 (255)
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div id="error-container"></div>
+</div>
+
+<script>
+  let heaterControlState = {
+    pubsubClient: null,
+    currentPower: 0,
+  };
+
+  function init_heater_control(pubsubClient) {
+    console.log("Initializing Heater Control module...");
+
+    heaterControlState.pubsubClient = pubsubClient;
+
+    pubsubClient.subscribe("heater/status", handleStatusUpdate);
+    pubsubClient.subscribe("heater/error", handleError);
+
+    setupControlForm();
+    setupSlider();
+    setupQuickButtons();
+
+    pubsubClient.publish("heater/query", "");
+
+    console.log("Heater Control module initialized");
+  }
+
+  function setupControlForm() {
+    const form = document.getElementById("heater-control-form");
+    const powerInput = document.getElementById("power-input");
+
+    form.addEventListener("submit", (e) => {
+      e.preventDefault();
+
+      const power = parseInt(powerInput.value);
+
+      if (!validatePower(power)) {
+        return;
+      }
+
+      sendPowerCommand(power);
+    });
+
+    powerInput.addEventListener("input", () => {
+      const power = parseInt(powerInput.value);
+      if (!isNaN(power)) {
+        const constrainedPower = Math.max(0, Math.min(255, power));
+        if (power !== constrainedPower) {
+          powerInput.value = constrainedPower;
+        }
+      }
+    });
+  }
+
+  function setupSlider() {
+    const slider = document.getElementById("power-slider");
+    const sliderDisplay = document.getElementById("slider-value-display");
+    const powerInput = document.getElementById("power-input");
+
+    slider.addEventListener("input", () => {
+      const value = parseInt(slider.value);
+      sliderDisplay.textContent = value;
+      powerInput.value = value;
+    });
+
+    slider.addEventListener("change", () => {
+      const power = parseInt(slider.value);
+      sendPowerCommand(power);
+    });
+  }
+
+  function setupQuickButtons() {
+    const buttons = document.querySelectorAll(".quick-btn");
+
+    buttons.forEach((button) => {
+      button.addEventListener("click", () => {
+        const power = parseInt(button.dataset.power);
+        sendPowerCommand(power);
+
+        const slider = document.getElementById("power-slider");
+        const sliderDisplay = document.getElementById("slider-value-display");
+        const powerInput = document.getElementById("power-input");
+
+        slider.value = power;
+        sliderDisplay.textContent = power;
+        powerInput.value = power;
+      });
+    });
+  }
+
+  function validatePower(power) {
+    if (isNaN(power)) {
+      showError("请输入有效的数字");
+      return false;
+    }
+
+    if (power < 0 || power > 255) {
+      showError("功率值必须在0到255之间");
+      return false;
+    }
+
+    return true;
+  }
+
+  function sendPowerCommand(power) {
+    const constrainedPower = Math.max(0, Math.min(255, power));
+
+    const success = heaterControlState.pubsubClient.publish(
+      "heater/power",
+      constrainedPower.toString()
+    );
+
+    if (!success) {
+      showError("发送失败: WebSocket未连接");
+    }
+  }
+
+  function handleStatusUpdate(topic, payload) {
+    console.log(`Heater status update: ${payload}`);
+
+    const power = parseInt(payload);
+
+    if (isNaN(power)) {
+      return;
+    }
+
+    heaterControlState.currentPower = power;
+
+    updatePowerDisplay(power);
+    const status = power === 0 ? "stopped" : "running";
+    updateStatusIndicator(status);
+  }
+
+  function updatePowerDisplay(power) {
+    const currentPowerDisplay = document.getElementById(
+      "current-power-display"
+    );
+    const percentageDisplay = document.getElementById(
+      "power-percentage-display"
+    );
+    const slider = document.getElementById("power-slider");
+    const sliderDisplay = document.getElementById("slider-value-display");
+    const powerInput = document.getElementById("power-input");
+
+    currentPowerDisplay.textContent = power;
+
+    const percentage = Math.round((power / 255) * 100);
+    percentageDisplay.textContent = `${percentage}%`;
+
+    slider.value = power;
+    sliderDisplay.textContent = power;
+    powerInput.value = power;
+  }
+
+  function updateStatusIndicator(status) {
+    const statusIcon = document.getElementById("heater-status-icon");
+    const statusText = document.getElementById("heater-status-text");
+
+    statusIcon.classList.remove("stopped", "running");
+
+    if (status === "stopped") {
+      statusIcon.classList.add("stopped");
+      statusText.textContent = "关闭";
+    } else if (status === "running") {
+      statusIcon.classList.add("running");
+      statusText.textContent = "加热中";
+    }
+  }
+
+  function handleError(topic, payload) {
+    console.error(`Heater error: ${payload}`);
+    showError(payload);
+  }
+
+  function showError(message) {
+    const container = document.getElementById("error-container");
+
+    container.innerHTML = `
+      <div class="error-display">
+        <strong>错误:</strong> ${message}
+      </div>
+    `;
+
+    setTimeout(() => {
+      container.innerHTML = "";
+    }, 5000);
+  }
+
+  function cleanup_heater_control() {
+    console.log("Cleaning up Heater Control module...");
+
+    heaterControlState.pubsubClient.unsubscribe("heater/status");
+    heaterControlState.pubsubClient.unsubscribe("heater/error");
+
+    console.log("Heater Control module cleaned up");
+  }
+</script>
