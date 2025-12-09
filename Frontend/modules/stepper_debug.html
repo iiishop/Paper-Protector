@@ -48,6 +48,45 @@
     margin-bottom: var(--spacing-md);
   }
 
+  /* Position Display */
+  .position-display {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: var(--spacing-md);
+    margin-bottom: var(--spacing-md);
+  }
+
+  .position-item {
+    padding: var(--spacing-md);
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-radius: var(--border-radius);
+    text-align: center;
+    color: white;
+  }
+
+  .position-label {
+    font-size: var(--font-size-sm);
+    opacity: 0.9;
+    margin-bottom: var(--spacing-xs);
+  }
+
+  .position-value {
+    font-size: 2rem;
+    font-weight: 700;
+    margin: var(--spacing-sm) 0;
+  }
+
+  .position-unit {
+    font-size: var(--font-size-sm);
+    opacity: 0.8;
+  }
+
+  .position-controls {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: var(--spacing-sm);
+  }
+
   .status-icon {
     width: 16px;
     height: 16px;
@@ -70,11 +109,13 @@
   }
 
   @keyframes pulse {
+
     0%,
     100% {
       opacity: 1;
       transform: scale(1);
     }
+
     50% {
       opacity: 0.6;
       transform: scale(1.1);
@@ -157,6 +198,7 @@
       opacity: 0;
       transform: translateX(-10px);
     }
+
     to {
       opacity: 1;
       transform: translateX(0);
@@ -190,6 +232,7 @@
       opacity: 0;
       transform: translateY(-10px);
     }
+
     to {
       opacity: 1;
       transform: translateY(0);
@@ -265,10 +308,7 @@
 <div class="module-content">
   <!-- Connection Status Section -->
   <div class="connection-status">
-    <div
-      class="connection-indicator disconnected"
-      id="connection-indicator"
-    ></div>
+    <div class="connection-indicator disconnected" id="connection-indicator"></div>
     <div class="connection-text disconnected" id="connection-text">未连接</div>
   </div>
 
@@ -281,6 +321,27 @@
     </div>
   </div>
 
+  <!-- Position Display Section -->
+  <div class="module-section">
+    <h3 class="module-section-title">当前位置</h3>
+    <div class="position-display">
+      <div class="position-item">
+        <div class="position-label">圈数</div>
+        <div class="position-value" id="position-revolutions">0.00</div>
+        <div class="position-unit">圈</div>
+      </div>
+      <div class="position-item">
+        <div class="position-label">位置</div>
+        <div class="position-value" id="position-mm">0.00</div>
+        <div class="position-unit">mm</div>
+      </div>
+    </div>
+    <div class="position-controls">
+      <button class="btn btn-warning" id="calibrate-btn">🎯 校准调零</button>
+      <button class="btn btn-info" id="home-btn">🏠 回零</button>
+    </div>
+  </div>
+
   <!-- Control Section -->
   <div class="module-section">
     <h3 class="module-section-title">旋转控制</h3>
@@ -288,15 +349,8 @@
       <div class="input-group">
         <div class="module-form-group">
           <label for="revolutions-input">圈数 (正数=顺时针, 负数=逆时针)</label>
-          <input
-            type="number"
-            id="revolutions-input"
-            placeholder="例如: 1.5 或 -2.0"
-            step="0.1"
-            min="-100"
-            max="100"
-            required
-          />
+          <input type="number" id="revolutions-input" placeholder="例如: 1.5 或 -2.0" step="0.1" min="-100" max="100"
+            required />
           <div class="input-hint" id="input-hint">范围: -100 到 100 圈</div>
           <div id="input-validation-message"></div>
         </div>
@@ -365,12 +419,22 @@
     // Subscribe to motor status and error topics
     pubsubClient.subscribe("motor/status", handleStatusUpdate);
     pubsubClient.subscribe("motor/error", handleError);
+    pubsubClient.subscribe("motor/position", handlePositionUpdate);
 
     // Set up event listeners
     setupRotationForm();
     setupQuickControls();
     setupClearHistoryButton();
     setupConnectionMonitoring();
+    setupPositionControls();
+
+    // 加载保存的位置
+    loadPosition();
+
+    // 请求当前位置
+    setTimeout(() => {
+      pubsubClient.publish("motor/position/get", "");
+    }, 500);
 
     console.log("Stepper Debug module initialized");
     console.log("PubSubClient connected:", pubsubClient.isConnected());
@@ -575,6 +639,77 @@
   function handleError(topic, payload) {
     console.error(`Motor error: ${payload}`);
     showError(payload);
+  }
+
+  /**
+   * Handle position update
+   */
+  function handlePositionUpdate(topic, payload) {
+    console.log(`Position update: ${payload}`);
+    const parts = payload.split(',');
+    if (parts.length === 2) {
+      const revolutions = parseFloat(parts[0]);
+      const position_mm = parseFloat(parts[1]);
+
+      updatePositionDisplay(revolutions, position_mm);
+      savePosition(revolutions, position_mm);
+    }
+  }
+
+  /**
+   * Update position display
+   */
+  function updatePositionDisplay(revolutions, position_mm) {
+    document.getElementById('position-revolutions').textContent = revolutions.toFixed(2);
+    document.getElementById('position-mm').textContent = position_mm.toFixed(2);
+  }
+
+  /**
+   * Save position to localStorage
+   */
+  function savePosition(revolutions, position_mm) {
+    localStorage.setItem('motor_position', JSON.stringify({
+      revolutions: revolutions,
+      position_mm: position_mm,
+      timestamp: new Date().toISOString()
+    }));
+  }
+
+  /**
+   * Load position from localStorage
+   */
+  function loadPosition() {
+    const saved = localStorage.getItem('motor_position');
+    if (saved) {
+      try {
+        const data = JSON.parse(saved);
+        updatePositionDisplay(data.revolutions, data.position_mm);
+      } catch (e) {
+        console.error('Failed to load position:', e);
+      }
+    }
+  }
+
+  /**
+   * Setup position controls
+   */
+  function setupPositionControls() {
+    const calibrateBtn = document.getElementById('calibrate-btn');
+    const homeBtn = document.getElementById('home-btn');
+
+    calibrateBtn.addEventListener('click', () => {
+      if (confirm('确定要将当前位置校准为 0 圈 0mm 吗?')) {
+        stepperDebugState.pubsubClient.publish('motor/calibrate', '');
+        console.log('Calibration requested');
+      }
+    });
+
+    homeBtn.addEventListener('click', () => {
+      if (confirm('确定要将电机移动到 0 位置吗?')) {
+        stepperDebugState.pubsubClient.publish('motor/home', '');
+        console.log('Homing requested');
+      }
+    });
   }
 
   /**
