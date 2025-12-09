@@ -358,6 +358,20 @@
       </div>
     </form>
 
+    <!-- Move To Position Form -->
+    <form class="module-form mt-md" id="moveto-form">
+      <div class="input-group">
+        <div class="module-form-group">
+          <label for="position-input">移动到指定位置 (mm)</label>
+          <input type="number" id="position-input" placeholder="例如: 50.0 或 120.5" step="0.1" min="0" max="160"
+            required />
+          <div class="input-hint">范围: 0 到 160 mm</div>
+          <div id="position-validation-message"></div>
+        </div>
+        <button type="submit" class="btn btn-success">移动到指定位置</button>
+      </div>
+    </form>
+
     <!-- Quick Control Buttons -->
     <div class="mt-md">
       <strong>快捷控制:</strong>
@@ -423,6 +437,7 @@
 
     // Set up event listeners
     setupRotationForm();
+    setupMoveToForm();
     setupQuickControls();
     setupClearHistoryButton();
     setupConnectionMonitoring();
@@ -497,6 +512,87 @@
   }
 
   /**
+   * Setup move to position form handler
+   */
+  function setupMoveToForm() {
+    const form = document.getElementById("moveto-form");
+    const input = document.getElementById("position-input");
+
+    // Add real-time validation on input
+    input.addEventListener("input", () => {
+      validatePositionInput(input);
+    });
+
+    form.addEventListener("submit", (e) => {
+      e.preventDefault();
+
+      const targetMm = parseFloat(input.value);
+
+      // Validate input
+      if (isNaN(targetMm)) {
+        showPositionValidationMessage("请输入有效的数字", "error");
+        return;
+      }
+
+      // Validate range (0-160mm)
+      if (targetMm < 0 || targetMm > 160) {
+        showPositionValidationMessage(
+          "位置超出范围！请输入 0 到 160 之间的值",
+          "error"
+        );
+        return;
+      }
+
+      // Send moveto command
+      sendMoveToCommand(targetMm);
+
+      // Clear input and validation message
+      input.value = "";
+      clearPositionValidationMessage();
+      input.classList.remove("warning", "error");
+    });
+  }
+
+  /**
+   * Validate position input field value
+   */
+  function validatePositionInput(input) {
+    const value = parseFloat(input.value);
+
+    // Clear previous validation state
+    input.classList.remove("warning", "error");
+    clearPositionValidationMessage();
+
+    // Check if empty
+    if (input.value === "") {
+      return;
+    }
+
+    // Check if valid number
+    if (isNaN(value)) {
+      input.classList.add("error");
+      showPositionValidationMessage("请输入有效的数字", "error");
+      return;
+    }
+
+    // Check if within range
+    if (value < 0 || value > 160) {
+      input.classList.add("error");
+      showPositionValidationMessage(
+        "超出范围！请输入 0 到 160 之间的值",
+        "error"
+      );
+      return;
+    }
+
+    // Show warning if close to limits
+    if (value < 5 || value > 155) {
+      input.classList.add("warning");
+      showPositionValidationMessage("接近行程极限", "warning");
+    }
+  }
+
+  /**
    * Validate if value is within allowed range
    */
   function isWithinRange(value) {
@@ -561,6 +657,24 @@
   }
 
   /**
+   * Show position validation message
+   */
+  function showPositionValidationMessage(message, type = "warning") {
+    const container = document.getElementById("position-validation-message");
+    const className = type === "error" ? "input-error" : "input-warning";
+
+    container.innerHTML = `<div class="${className}">${message}</div>`;
+  }
+
+  /**
+   * Clear position validation message
+   */
+  function clearPositionValidationMessage() {
+    const container = document.getElementById("position-validation-message");
+    container.innerHTML = "";
+  }
+
+  /**
    * Send rotation command to motor
    */
   function sendRotateCommand(revolutions) {
@@ -587,6 +701,36 @@
       // Add to command history
       addToHistory(revolutions);
       console.log(`Sent rotation command: ${revolutions} revolutions`);
+    } else {
+      showError("发送命令失败");
+    }
+  }
+
+  /**
+   * Send move to command
+   */
+  function sendMoveToCommand(targetMm) {
+    if (!stepperDebugState.isConnected) {
+      showError("WebSocket未连接，无法发送命令");
+      return;
+    }
+
+    // Validate range before sending
+    if (targetMm < 0 || targetMm > 160) {
+      showError("位置超出范围！允许范围: 0 到 160 mm");
+      return;
+    }
+
+    // Publish to motor/moveto topic
+    const success = stepperDebugState.pubsubClient.publish(
+      "motor/moveto",
+      targetMm.toString()
+    );
+
+    if (success) {
+      console.log(`Sent move to command: ${targetMm} mm`);
+      // Add to history as special command
+      addToHistory(`→ ${targetMm}mm`);
     } else {
       showError("发送命令失败");
     }

@@ -11,8 +11,8 @@ StepperMotor::StepperMotor(SerialPubSub *pubsub, int dirPin, int stepPin)
       _stepsPerRevolution(200), // 默认200步/圈 (1.8度步进角)
       _stepDelayMicros(1000),   // 默认1000微秒延迟
       _isBusy(false),
-      _currentSteps(0),     // 初始位置为0
-      _mmPerRevolution(1.6) // 默认每圈1.6mm (160mm / 100圈)
+      _currentSteps(0),       // 初始位置为0
+      _mmPerRevolution(1.498) // 实测每圈1.498mm (134.8mm / 90圈)
 {
     _instance = this;
 }
@@ -43,6 +43,9 @@ void StepperMotor::begin()
     // 订阅motor/position/get主题（查询位置）
     _pubsub->subscribe("motor/position/get", positionCallback);
 
+    // 订阅motor/moveto主题（移动到指定mm位置）
+    _pubsub->subscribe("motor/moveto", moveToCallback);
+
     // 发布初始配置和位置
     publishConfig();
     publishPosition();
@@ -57,6 +60,23 @@ void StepperMotor::loop()
 // 旋转指定圈数
 void StepperMotor::rotate(float revolutions)
 {
+    executeRotation(revolutions);
+}
+
+// 移动到指定毫米位置
+void StepperMotor::moveTo(float targetMm)
+{
+    // 计算当前位置（mm）
+    long currentRevolutions_x100 = (_currentSteps * 100L) / _stepsPerRevolution;
+    float currentMm = (float)currentRevolutions_x100 / 100.0 * _mmPerRevolution;
+
+    // 计算需要移动的距离
+    float deltaMm = targetMm - currentMm;
+
+    // 转换为圈数
+    float revolutions = deltaMm / _mmPerRevolution;
+
+    // 执行移动
     executeRotation(revolutions);
 }
 
@@ -369,5 +389,64 @@ void StepperMotor::positionCallback(const char *topic, const char *payload)
     if (_instance != nullptr)
     {
         _instance->publishPosition();
+    }
+}
+
+// 移动到指定位置回调
+void StepperMotor::moveToCallback(const char *topic, const char *payload)
+{
+    if (_instance != nullptr)
+    {
+        // 检查payload是否为空
+        if (payload == nullptr || payload[0] == '\0')
+        {
+            _instance->publishError("Invalid position");
+            return;
+        }
+
+        // 验证payload是否为有效数字格式
+        bool isValid = false;
+        bool hasDigit = false;
+        bool hasDecimal = false;
+        int i = 0;
+
+        // 允许开头的正负号
+        if (payload[i] == '-' || payload[i] == '+')
+        {
+            i++;
+        }
+
+        // 检查剩余字符
+        while (payload[i] != '\0')
+        {
+            if (payload[i] >= '0' && payload[i] <= '9')
+            {
+                hasDigit = true;
+            }
+            else if (payload[i] == '.' && !hasDecimal)
+            {
+                hasDecimal = true;
+            }
+            else
+            {
+                // 遇到非法字符
+                _instance->publishError("Invalid number");
+                return;
+            }
+            i++;
+        }
+
+        // 必须至少有一位数字
+        if (!hasDigit)
+        {
+            _instance->publishError("Invalid number");
+            return;
+        }
+
+        // 转换为浮点数
+        float targetMm = atof(payload);
+
+        // 执行moveTo
+        _instance->moveTo(targetMm);
     }
 }

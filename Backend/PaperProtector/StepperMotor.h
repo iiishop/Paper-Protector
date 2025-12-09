@@ -19,6 +19,9 @@ public:
     // 旋转指定圈数（正数=顺时针，负数=逆时针）
     void rotate(float revolutions);
 
+    // 移动到指定毫米位置
+    void moveTo(float targetMm);
+
     // 设置步进电机参数
     void setStepsPerRevolution(int steps);
     void setStepDelay(unsigned long delayMicros);
@@ -44,6 +47,7 @@ private:
     static void calibrateCallback(const char *topic, const char *payload);
     static void homeCallback(const char *topic, const char *payload);
     static void positionCallback(const char *topic, const char *payload);
+    static void moveToCallback(const char *topic, const char *payload);
     static StepperMotor *_instance; // 用于静态回调
 
     // 内部方法
