@@ -334,8 +334,10 @@ void StepperMotor::publishPosition()
     // 计算圈数（保留两位小数）
     long revolutions_x100 = (_currentSteps * 100L) / _stepsPerRevolution;
 
-    // 计算位置mm（保留两位小数）
-    long position_mm_x100 = (revolutions_x100 * 16L) / 10L; // 1.6mm per rev = 16/10
+    // 使用 _mmPerRevolution 计算位置（与moveTo保持一致）
+    // 将 _mmPerRevolution 转换为 x100 的整数运算以避免浮点数
+    long mmPerRev_x100 = (long)(_mmPerRevolution * 100);
+    long position_mm_x100 = (revolutions_x100 * mmPerRev_x100) / 100L;
 
     char posMsg[64];
     // 整数部分,小数部分
