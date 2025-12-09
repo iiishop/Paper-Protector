@@ -10,7 +10,7 @@ class Config:
     
     def __init__(self):
         # Serial port configuration
-        self.serial_port: str = os.getenv("SERIAL_PORT", "COM6")
+        self.serial_port: str = os.getenv("SERIAL_PORT", "COM9")
         self.baudrate: int = int(os.getenv("BAUDRATE", "9600"))
         self.serial_timeout: float = float(os.getenv("SERIAL_TIMEOUT", "1.0"))
         
