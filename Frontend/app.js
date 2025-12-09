@@ -43,12 +43,6 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!moduleLoader.isModuleLoaded('moisture_sensor')) {
                 loadMoistureSensor();
             }
-            if (!moduleLoader.isModuleLoaded('irled_control')) {
-                loadIRLEDControl();
-            }
-            if (!moduleLoader.isModuleLoaded('sensor_led_control')) {
-                loadSensorLEDControl();
-            }
         }
     });
 
@@ -89,16 +83,6 @@ function registerModules() {
     moduleLoader.registerModule('moisture_sensor', {
         path: 'modules/moisture_sensor.html',
         title: '湿度传感器'
-    });
-
-    moduleLoader.registerModule('irled_control', {
-        path: 'modules/irled_control.html',
-        title: 'IR LED 控制'
-    });
-
-    moduleLoader.registerModule('sensor_led_control', {
-        path: 'modules/sensor_led_control.html',
-        title: '传感器板载LED'
     });
 
     console.log('Modules registered');
@@ -154,34 +138,6 @@ async function loadMoistureSensor() {
         console.log('Moisture Sensor module loaded');
     } else {
         console.error('Failed to load Moisture Sensor module');
-    }
-}
-
-/**
- * Load IR LED Control module
- */
-async function loadIRLEDControl() {
-    console.log('Loading IR LED Control module...');
-    const success = await moduleLoader.loadModule('irled_control', 'module-container');
-
-    if (success) {
-        console.log('IR LED Control module loaded');
-    } else {
-        console.error('Failed to load IR LED Control module');
-    }
-}
-
-/**
- * Load Sensor LED Control module
- */
-async function loadSensorLEDControl() {
-    console.log('Loading Sensor LED Control module...');
-    const success = await moduleLoader.loadModule('sensor_led_control', 'module-container');
-
-    if (success) {
-        console.log('Sensor LED Control module loaded');
-    } else {
-        console.error('Failed to load Sensor LED Control module');
     }
 }
 
