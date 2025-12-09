@@ -49,19 +49,19 @@
     <div class="mt-md">
       <strong>快捷控制:</strong>
       <div class="quick-buttons-grid">
-        <button class="btn btn-secondary quick-btn" data-power="0">
+        <button class="btn btn-secondary heater-quick-btn" data-power="0">
           关闭 (0)
         </button>
-        <button class="btn btn-primary quick-btn" data-power="64">
+        <button class="btn btn-primary heater-quick-btn" data-power="64">
           低 (64)
         </button>
-        <button class="btn btn-primary quick-btn" data-power="128">
+        <button class="btn btn-primary heater-quick-btn" data-power="128">
           中 (128)
         </button>
-        <button class="btn btn-primary quick-btn" data-power="192">
+        <button class="btn btn-primary heater-quick-btn" data-power="192">
           高 (192)
         </button>
-        <button class="btn btn-primary quick-btn" data-power="255">
+        <button class="btn btn-primary heater-quick-btn" data-power="255">
           最大 (255)
         </button>
       </div>
@@ -139,7 +139,7 @@
   }
 
   function setupQuickButtons() {
-    const buttons = document.querySelectorAll(".quick-btn");
+    const buttons = document.querySelectorAll(".heater-quick-btn");
 
     buttons.forEach((button) => {
       button.addEventListener("click", () => {

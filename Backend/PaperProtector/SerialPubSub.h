@@ -4,7 +4,7 @@
 #include <Arduino.h>
 
 // 最大订阅数量
-#define MAX_SUBSCRIPTIONS 8
+#define MAX_SUBSCRIPTIONS 16
 // 最大主题长度
 #define MAX_TOPIC_LENGTH 24
 // 最大消息长度

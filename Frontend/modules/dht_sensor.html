@@ -427,7 +427,6 @@
      * Handle DHT data update (combined temperature and humidity)
      */
     function handleDHTData(topic, payload) {
-        console.log(`DHT data: ${payload}`);
 
         // Parse payload: "temp,humidity"
         const parts = payload.split(",");

@@ -49,19 +49,19 @@
     <div class="mt-md">
       <strong>快捷控制:</strong>
       <div class="quick-buttons-grid">
-        <button class="btn btn-secondary quick-btn" data-speed="0">
+        <button class="btn btn-secondary fan-quick-btn" data-speed="0">
           停止 (0)
         </button>
-        <button class="btn btn-primary quick-btn" data-speed="64">
+        <button class="btn btn-primary fan-quick-btn" data-speed="64">
           低速 (64)
         </button>
-        <button class="btn btn-primary quick-btn" data-speed="128">
+        <button class="btn btn-primary fan-quick-btn" data-speed="128">
           中速 (128)
         </button>
-        <button class="btn btn-primary quick-btn" data-speed="192">
+        <button class="btn btn-primary fan-quick-btn" data-speed="192">
           高速 (192)
         </button>
-        <button class="btn btn-primary quick-btn" data-speed="255">
+        <button class="btn btn-primary fan-quick-btn" data-speed="255">
           最大 (255)
         </button>
       </div>
@@ -139,7 +139,7 @@
   }
 
   function setupQuickButtons() {
-    const buttons = document.querySelectorAll(".quick-btn");
+    const buttons = document.querySelectorAll(".fan-quick-btn");
 
     buttons.forEach((button) => {
       button.addEventListener("click", () => {

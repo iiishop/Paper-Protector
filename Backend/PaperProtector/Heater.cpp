@@ -13,8 +13,18 @@ void Heater::begin()
     pinMode(_heaterPin, OUTPUT);
     analogWrite(_heaterPin, 0);
 
-    _pubsub->subscribe("heater/power", powerCallback);
-    _pubsub->subscribe("heater/query", queryCallback);
+    bool sub1 = _pubsub->subscribe("heater/power", powerCallback);
+    bool sub2 = _pubsub->subscribe("heater/query", queryCallback);
+
+    // 调试: 确认订阅
+    if (sub1 && sub2)
+    {
+        _pubsub->publish("heater/debug", "subscribed_ok");
+    }
+    else
+    {
+        _pubsub->publish("heater/debug", "subscribe_failed");
+    }
 }
 
 void Heater::loop()
@@ -67,6 +77,12 @@ void Heater::publishCurrentStatus()
 
 void Heater::powerCallback(const char *topic, const char *payload)
 {
+    // 调试: 确认收到消息
+    if (_instance != nullptr)
+    {
+        _instance->_pubsub->publish("heater/debug", "callback_called");
+    }
+
     if (_instance == nullptr)
         return;
 
