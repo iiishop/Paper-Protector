@@ -162,6 +162,77 @@
     padding-bottom: 8px;
 }
 
+/* System Status Grid */
+.system-status-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.status-indicator-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px;
+    background-color: white;
+    border-radius: 6px;
+    border: 1px solid #dee2e6;
+    transition: all 0.3s ease;
+}
+
+.status-indicator-row:hover {
+    background-color: #f8f9fa;
+    border-color: #adb5bd;
+}
+
+.status-light {
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background-color: #6c757d;
+    border: 2px solid #495057;
+    box-shadow: 0 0 0 rgba(0,0,0,0);
+    transition: all 0.3s ease;
+    flex-shrink: 0;
+}
+
+.status-light.on {
+    background-color: #28a745;
+    border-color: #1e7e34;
+    box-shadow: 0 0 12px rgba(40, 167, 69, 0.6);
+    animation: pulse 2s ease-in-out infinite;
+}
+
+.status-light.off {
+    background-color: #6c757d;
+    border-color: #495057;
+}
+
+@keyframes pulse {
+    0%, 100% {
+        box-shadow: 0 0 12px rgba(40, 167, 69, 0.6);
+    }
+    50% {
+        box-shadow: 0 0 20px rgba(40, 167, 69, 0.8);
+    }
+}
+
+.status-indicator-row .status-label {
+    flex: 1;
+    font-weight: 600;
+    font-size: 14px;
+    color: #495057;
+}
+
+.status-indicator-row .status-value {
+    font-size: 16px;
+    font-weight: 700;
+    color: #212529;
+    min-width: 40px;
+    text-align: right;
+    font-family: 'Courier New', monospace;
+}
+
 .env-display {
     display: grid;
     grid-template-columns: 1fr 1fr;

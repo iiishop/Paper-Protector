@@ -25,6 +25,10 @@ const state = {
     currentPositionMm: 0,
     paperLengthMm: CONFIG.defaultPaperLengthMm,
 
+    // System Components
+    fanPower: 0,
+    heaterPower: 0,
+
     // Calibration
     zeroTemp: null,
     zeroHumidity: null,
@@ -45,7 +49,11 @@ const state = {
     targetPositionMm: 0, // Target position from motor command
     simulatedPositionMm: 0, // Simulated current position
     isSimulating: false, // Is simulation active
-    simulationInterval: null // Interval timer for simulation
+    simulationInterval: null, // Interval timer for simulation
+
+    // System Components
+    fanPower: 0,
+    heaterPower: 0
 };
 
 // DOM Elements
@@ -65,7 +73,12 @@ const elements = {
     inputLength: document.getElementById('paper-length-input'),
     calibrationStatus: document.getElementById('calibration-status'),
     systemState: document.getElementById('system-state'),
-    connectionStatus: document.getElementById('connection-status')
+    connectionStatus: document.getElementById('connection-status'),
+    // System status indicators
+    fanStatusLight: document.getElementById('fan-status-light'),
+    fanPowerValue: document.getElementById('fan-power-value'),
+    heaterStatusLight: document.getElementById('heater-status-light'),
+    heaterPowerValue: document.getElementById('heater-power-value')
 };
 
 // Initialize PubSub
@@ -112,9 +125,19 @@ function initPubSub() {
     pubsub.subscribe('dht/temperature', handleTemp);
     pubsub.subscribe('dht/humidity', handleHumidity);
     pubsub.subscribe('motor/position', handlePosition);
+    pubsub.subscribe('fan/status', handleFanStatus);
+    pubsub.subscribe('heater/status', handleHeaterStatus);
     pubsub.subscribe('system/status', (topic, payload) => {
         console.log('System status:', payload);
     });
+
+    // Query initial status after connection
+    setTimeout(() => {
+        if (state.isConnected) {
+            pubsub.publish('fan/query', '');
+            pubsub.publish('heater/query', '');
+        }
+    }, 500);
 }
 
 // --- Core Logic ---
@@ -225,6 +248,44 @@ function handlePosition(topic, payload) {
                 handleDryingMovement(mm);
             }
         }
+    }
+}
+
+function handleFanStatus(topic, payload) {
+    const power = parseInt(payload);
+    if (!isNaN(power)) {
+        state.fanPower = power;
+        updateFanDisplay(power);
+    }
+}
+
+function handleHeaterStatus(topic, payload) {
+    const power = parseInt(payload);
+    if (!isNaN(power)) {
+        state.heaterPower = power;
+        updateHeaterDisplay(power);
+    }
+}
+
+function updateFanDisplay(power) {
+    elements.fanPowerValue.textContent = power;
+    if (power > 0) {
+        elements.fanStatusLight.classList.add('on');
+        elements.fanStatusLight.classList.remove('off');
+    } else {
+        elements.fanStatusLight.classList.add('off');
+        elements.fanStatusLight.classList.remove('on');
+    }
+}
+
+function updateHeaterDisplay(power) {
+    elements.heaterPowerValue.textContent = power;
+    if (power > 0) {
+        elements.heaterStatusLight.classList.add('on');
+        elements.heaterStatusLight.classList.remove('off');
+    } else {
+        elements.heaterStatusLight.classList.add('off');
+        elements.heaterStatusLight.classList.remove('on');
     }
 }
 

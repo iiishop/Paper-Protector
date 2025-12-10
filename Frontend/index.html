@@ -41,6 +41,25 @@
 
         <!-- Right: Controls & Info -->
         <div class="controls-sidebar">
+            <!-- System Status -->
+            <div class="control-section">
+                <h3>System Status</h3>
+                <div class="system-status-grid">
+                    <!-- Fan Status -->
+                    <div class="status-indicator-row">
+                        <div class="status-light" id="fan-status-light"></div>
+                        <span class="status-label">Fan</span>
+                        <span class="status-value" id="fan-power-value">0</span>
+                    </div>
+                    <!-- Heater Status -->
+                    <div class="status-indicator-row">
+                        <div class="status-light" id="heater-status-light"></div>
+                        <span class="status-label">Heater</span>
+                        <span class="status-value" id="heater-power-value">0</span>
+                    </div>
+                </div>
+            </div>
+
             <!-- Environment Status -->
             <div class="control-section">
                 <h3>Environment</h3>
