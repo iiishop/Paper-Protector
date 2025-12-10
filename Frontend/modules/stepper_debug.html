@@ -419,6 +419,15 @@
     isConnected: false,
     minRevolutions: -100,
     maxRevolutions: 100,
+
+    // Position simulation
+    currentPositionMm: 0,
+    simulatedPositionMm: 0,
+    targetPositionMm: 0,
+    isSimulating: false,
+    simulationInterval: null,
+    motorSpeedRevPerSec: 2.0,
+    mmPerRevolution: 1.498
   };
 
   /**
@@ -691,6 +700,11 @@
       return;
     }
 
+    // Start position simulation for rotation
+    const distanceMm = revolutions * stepperDebugState.mmPerRevolution;
+    const targetMm = stepperDebugState.simulatedPositionMm + distanceMm;
+    startPositionSimulation(targetMm);
+
     // Publish to motor/rotate topic
     const success = stepperDebugState.pubsubClient.publish(
       "motor/rotate",
@@ -720,6 +734,9 @@
       showError("位置超出范围！允许范围: 0 到 160 mm");
       return;
     }
+
+    // Start position simulation
+    startPositionSimulation(targetMm);
 
     // Publish to motor/moveto topic
     const success = stepperDebugState.pubsubClient.publish(
@@ -794,6 +811,11 @@
     if (parts.length === 2) {
       const revolutions = parseFloat(parts[0]);
       const position_mm = parseFloat(parts[1]);
+
+      // Stop simulation and sync to actual position
+      stopPositionSimulation();
+      stepperDebugState.currentPositionMm = position_mm;
+      stepperDebugState.simulatedPositionMm = position_mm;
 
       updatePositionDisplay(revolutions, position_mm);
       savePosition(revolutions, position_mm);
@@ -1112,6 +1134,9 @@
   function cleanup_stepper_debug() {
     console.log("Cleaning up Stepper Debug module...");
 
+    // Stop simulation
+    stopPositionSimulation();
+
     // Unsubscribe from topics
     stepperDebugState.pubsubClient.unsubscribe("motor/status");
     stepperDebugState.pubsubClient.unsubscribe("motor/error");
@@ -1120,5 +1145,65 @@
     stepperDebugState.commandHistory = [];
 
     console.log("Stepper Debug module cleaned up");
+  }
+
+  // --- Position Simulation Functions ---
+
+  /**
+   * Start simulating smooth position movement
+   */
+  function startPositionSimulation(targetMm) {
+    // Stop any existing simulation
+    stopPositionSimulation();
+
+    stepperDebugState.targetPositionMm = targetMm;
+    stepperDebugState.isSimulating = true;
+
+    // Calculate movement parameters
+    const startPos = stepperDebugState.simulatedPositionMm;
+    const distance = Math.abs(targetMm - startPos);
+    const direction = targetMm > startPos ? 1 : -1;
+
+    // Speed: 2 rev/sec * 1.498 mm/rev = ~3 mm/sec
+    const speedMmPerSec = stepperDebugState.motorSpeedRevPerSec * stepperDebugState.mmPerRevolution;
+
+    // Update interval: 50ms (20 fps)
+    const updateIntervalMs = 50;
+    const stepMm = (speedMmPerSec * updateIntervalMs) / 1000;
+
+    console.log(`[Stepper Debug] Simulating: ${startPos.toFixed(1)}mm → ${targetMm.toFixed(1)}mm (${distance.toFixed(1)}mm at ${speedMmPerSec.toFixed(2)}mm/s)`);
+
+    stepperDebugState.simulationInterval = setInterval(() => {
+      if (!stepperDebugState.isSimulating) {
+        stopPositionSimulation();
+        return;
+      }
+
+      const remaining = Math.abs(stepperDebugState.targetPositionMm - stepperDebugState.simulatedPositionMm);
+
+      if (remaining < stepMm) {
+        // Reached target
+        stepperDebugState.simulatedPositionMm = stepperDebugState.targetPositionMm;
+        const revolutions = stepperDebugState.simulatedPositionMm / stepperDebugState.mmPerRevolution;
+        updatePositionDisplay(revolutions, stepperDebugState.simulatedPositionMm);
+        stopPositionSimulation();
+      } else {
+        // Continue moving
+        stepperDebugState.simulatedPositionMm += stepMm * direction;
+        const revolutions = stepperDebugState.simulatedPositionMm / stepperDebugState.mmPerRevolution;
+        updatePositionDisplay(revolutions, stepperDebugState.simulatedPositionMm);
+      }
+    }, updateIntervalMs);
+  }
+
+  /**
+   * Stop position simulation
+   */
+  function stopPositionSimulation() {
+    if (stepperDebugState.simulationInterval) {
+      clearInterval(stepperDebugState.simulationInterval);
+      stepperDebugState.simulationInterval = null;
+    }
+    stepperDebugState.isSimulating = false;
   }
 </script>
