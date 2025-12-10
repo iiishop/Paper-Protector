@@ -134,6 +134,52 @@
     filter: none; /* Prevent text blur */
 }
 
+/* Humidity Bars */
+.humidity-bars-container {
+    position: absolute;
+    left: 110px; /* 纸张宽度100px + 10px间距 */
+    top: 0;
+    width: 200px; /* 柱状图最大宽度 */
+    height: 100%;
+    pointer-events: none;
+}
+
+.humidity-bar {
+    position: absolute;
+    left: 0;
+    width: 100%;
+    height: 1px; /* 柱子宽度为1px,看起来像线 */
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+}
+
+.humidity-max-line {
+    position: absolute;
+    left: 0;
+    top: 0;
+    height: 1px;
+    background-color: #3498db; /* 蓝色 - 最高湿度 */
+    transition: width 0.3s ease;
+    box-shadow: 0 0 3px rgba(52, 152, 219, 0.6);
+}
+
+.humidity-current-line {
+    position: absolute;
+    left: 0;
+    top: 0;
+    height: 1px;
+    background-color: #27ae60; /* 深绿色 - 当前湿度 */
+    transition: width 0.5s ease, background-color 0.3s ease;
+    box-shadow: 0 0 3px rgba(39, 174, 96, 0.6);
+    z-index: 1; /* 确保在蓝色线上方 */
+}
+
+.humidity-bar.dry .humidity-current-line {
+    background-color: #2ecc71; /* 亮绿色 - 已干燥 */
+    box-shadow: 0 0 4px rgba(46, 204, 113, 0.8);
+}
+
 /* Sidebar */
 .controls-sidebar {
     width: 300px;
@@ -336,6 +382,16 @@
 .btn-sm {
     padding: 5px 10px;
     font-size: 12px;
+}
+
+.button-group {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 10px;
+}
+
+.button-group .btn {
+    flex: 1;
 }
 
 .btn-outline {
