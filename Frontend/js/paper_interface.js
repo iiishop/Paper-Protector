@@ -5,12 +5,12 @@
 // Configuration
 const CONFIG = {
     paperWidthMm: 50,
-    defaultPaperLengthMm: 210,
+    defaultPaperLengthMm: 50,
     pixelsPerMm: 3, // Scale factor for visualization
     scanSpeed: 128, // Fan speed during scan
     dryFanSpeed: 255,
     dryHeaterPower: 255,
-    wetThresholdPercent: 5.0, // Relative humidity above zero to consider "wet"
+    wetThresholdPercent: 2.0, // Relative humidity above zero to consider "wet"
     scanStepMm: 5, // Resolution of scanning
     motorMaxSpeed: 200, // Assuming some max speed for calculations
     motorSpeedRevPerSec: 2.0, // Motor speed: 2 revolutions per second
@@ -20,6 +20,7 @@ const CONFIG = {
 // State
 const state = {
     isConnected: false,
+    isSimulatorMode: false, // 模拟器模式标志
     currentTemp: 0,
     currentHumidity: 0,
     currentPositionMm: 0,
@@ -53,6 +54,10 @@ const state = {
     isSimulating: false, // Is simulation active
     simulationInterval: null, // Interval timer for simulation
 
+    // Humidity Chart
+    maxHumidityDetected: 0, // 检测到的最高湿度值
+    humidityChartMax: 10, // 图表Y轴最大值（动态调整）
+
     // System Components
     fanPower: 0,
     heaterPower: 0
@@ -76,9 +81,13 @@ const elements = {
     btnStop: document.getElementById('btn-stop-all'),
     btnSetLength: document.getElementById('btn-set-length'),
     inputLength: document.getElementById('paper-length-input'),
+    btnSetThreshold: document.getElementById('btn-set-threshold'),
+    inputThreshold: document.getElementById('wet-threshold-input'),
     calibrationStatus: document.getElementById('calibration-status'),
     systemState: document.getElementById('system-state'),
     connectionStatus: document.getElementById('connection-status'),
+    btnToggleSimulator: document.getElementById('btn-toggle-simulator'),
+    connectionMode: document.getElementById('connection-mode'),
     // System status indicators
     fanStatusLight: document.getElementById('fan-status-light'),
     fanPowerValue: document.getElementById('fan-power-value'),
@@ -101,6 +110,9 @@ function initUI() {
     // Set initial paper size
     updatePaperVisuals();
 
+    // Initialize humidity chart scale with default values
+    updateHumidityChartScale();
+
     // Event Listeners
     elements.btnSetLength.addEventListener('click', () => {
         const len = parseInt(elements.inputLength.value);
@@ -116,36 +128,125 @@ function initUI() {
     elements.btnCalibrateMotor.addEventListener('click', calibrateMotor);
     elements.btnHomeMotor.addEventListener('click', homeMotor);
     elements.btnStop.addEventListener('click', stopAll);
+    elements.btnSetThreshold.addEventListener('click', setWetThreshold);
+    elements.btnToggleSimulator.addEventListener('click', toggleSimulator);
 }
 
 function initPubSub() {
-    pubsub.onStatusChange((status) => {
-        elements.connectionStatus.className = `status-indicator ${status}`;
-        elements.connectionStatus.textContent = status;
-        state.isConnected = (status === 'connected');
+    if (state.isSimulatorMode) {
+        // 模拟器模式：直接订阅模拟器
+        setupSimulatorSubscriptions();
+        state.isConnected = true;
+        elements.connectionStatus.className = 'status-indicator connected';
+        elements.connectionStatus.textContent = 'Simulator';
         updateButtonStates();
-    });
+        queryCurrentStatus();
+    } else {
+        // 真实设备模式：使用WebSocket
+        pubsub.onStatusChange((status) => {
+            elements.connectionStatus.className = `status-indicator ${status}`;
+            elements.connectionStatus.textContent = status;
+            state.isConnected = (status === 'connected');
+            updateButtonStates();
 
-    pubsub.connect();
+            // Query current status when connected/reconnected
+            if (status === 'connected') {
+                setTimeout(() => {
+                    queryCurrentStatus();
+                }, 500);
+            }
+        });
 
-    // Subscribe to topics
-    pubsub.subscribe('dht/temperature', handleTemp);
-    pubsub.subscribe('dht/humidity', handleHumidity);
-    pubsub.subscribe('motor/position', handlePosition);
-    pubsub.subscribe('fan/status', handleFanStatus);
-    pubsub.subscribe('heater/status', handleHeaterStatus);
-    pubsub.subscribe('system/status', (topic, payload) => {
-        console.log('System status:', payload);
-    });
+        pubsub.connect();
 
-    // Query initial status after connection
-    setTimeout(() => {
-        if (state.isConnected) {
-            pubsub.publish('fan/query', '');
-            pubsub.publish('heater/query', '');
-        }
-    }, 500);
+        // Subscribe to topics
+        pubsub.subscribe('dht/temperature', handleTemp);
+        pubsub.subscribe('dht/humidity', handleHumidity);
+        pubsub.subscribe('motor/position', handlePosition);
+        pubsub.subscribe('fan/status', handleFanStatus);
+        pubsub.subscribe('heater/status', handleHeaterStatus);
+        pubsub.subscribe('system/status', (topic, payload) => {
+            console.log('System status:', payload);
+        });
+    }
 }
+
+function queryCurrentStatus() {
+    /**
+     * 查询所有设备的当前状态
+     * 在连接和重连后调用
+     */
+    console.log('Querying current status from devices...');
+    if (state.isSimulatorMode) {
+        window.paperSimulator.publish('fan/query', '');
+        window.paperSimulator.publish('heater/query', '');
+    } else {
+        pubsub.publish('fan/query', '');
+        pubsub.publish('heater/query', '');
+    }
+}
+
+function toggleSimulator() {
+    /**
+     * 切换模拟器/真实设备模式
+     */
+    state.isSimulatorMode = !state.isSimulatorMode;
+
+    if (state.isSimulatorMode) {
+        // 切换到模拟器模式
+        elements.btnToggleSimulator.textContent = 'Switch to Real Device';
+        elements.connectionMode.textContent = 'Simulator';
+
+        // 断开WebSocket
+        if (state.isConnected) {
+            pubsub.disconnect();
+        }
+
+        // 启动模拟器
+        window.paperSimulator.start();
+        setupSimulatorSubscriptions();
+        state.isConnected = true;
+        elements.connectionStatus.className = 'status-indicator connected';
+        elements.connectionStatus.textContent = 'Simulator';
+        updateButtonStates();
+
+        console.log('[UI] Switched to Simulator mode');
+    } else {
+        // 切换到真实设备模式
+        elements.btnToggleSimulator.textContent = 'Switch to Simulator';
+        elements.connectionMode.textContent = 'Real Device';
+
+        // 停止模拟器
+        window.paperSimulator.stop();
+        state.isConnected = false;
+
+        // 重新连接WebSocket
+        initPubSub();
+
+        console.log('[UI] Switched to Real Device mode');
+    }
+}
+
+function setupSimulatorSubscriptions() {
+    /**
+     * 设置模拟器订阅
+     */
+    window.paperSimulator.subscribe('dht/temperature', handleTemp);
+    window.paperSimulator.subscribe('dht/humidity', handleHumidity);
+    window.paperSimulator.subscribe('motor/position', handlePosition);
+    window.paperSimulator.subscribe('fan/status', handleFanStatus);
+    window.paperSimulator.subscribe('heater/status', handleHeaterStatus);
+}
+
+// Override pubsub.publish to route to simulator when in simulator mode
+const originalPublish = pubsub.publish.bind(pubsub);
+pubsub.publish = function (topic, payload) {
+    if (state.isSimulatorMode) {
+        window.paperSimulator.publish(topic, payload);
+    } else {
+        originalPublish(topic, payload);
+    }
+};
 
 // --- Core Logic ---
 
@@ -172,6 +273,23 @@ function updatePaperVisuals() {
         }
 
         rulerContainer.appendChild(mark);
+    }
+
+    // Update humidity chart
+    updateHumidityChartAxis();
+}
+
+function updateHumidityChartAxis() {
+    /**
+     * 同步图表高度到纸张高度
+     */
+    const chartPlotArea = document.querySelector('.chart-plot-area');
+    const rulerMarks = document.querySelector('.ruler-marks');
+
+    if (chartPlotArea && rulerMarks) {
+        const heightPx = state.paperLengthMm * CONFIG.pixelsPerMm;
+        chartPlotArea.style.height = `${heightPx}px`;
+        rulerMarks.style.height = `${heightPx}px`;
     }
 }
 
@@ -377,7 +495,23 @@ function homeMotor() {
         startPositionSimulation(0);
         pubsub.publish('motor/home', '');
     }
-} function updateButtonStates() {
+}
+
+function setWetThreshold() {
+    /**
+     * 设置湿点检测阈值
+     */
+    const threshold = parseFloat(elements.inputThreshold.value);
+    if (threshold >= 0.5 && threshold <= 10) {
+        CONFIG.wetThresholdPercent = threshold;
+        console.log(`Wet threshold updated to ${threshold}%`);
+        alert(`阈值已更新为 ${threshold}%`);
+    } else {
+        alert('阈值必须在 0.5% 到 10% 之间');
+    }
+}
+
+function updateButtonStates() {
     elements.btnStartScan.disabled = !state.isConnected || !state.isCalibrated || state.systemState !== 'IDLE';
     elements.btnCalibrateMotor.disabled = !state.isConnected;
     elements.btnHomeMotor.disabled = !state.isConnected;
@@ -506,56 +640,124 @@ function addWetSpotVisual(pos, humidity) {
 
 function updateHumidityBar(pos, currentHumidity) {
     /**
-     * 更新湿度柱状图
+     * 更新湿度柱状图 - 横向显示
      * 蓝色线表示最高湿度,绿色线表示当前湿度
+     * Y轴最大值为检测到的最高湿度（动态调整）
      */
     const barId = `humidity-bar-${Math.round(pos)}`;
     let bar = document.getElementById(barId);
+
+    // 更新全局最高湿度
+    if (currentHumidity > state.maxHumidityDetected) {
+        state.maxHumidityDetected = currentHumidity;
+        updateHumidityChartScale();
+    }
+
+    // 计算位置百分比(从顶部开始,纵向定位)
+    const posPercent = (pos / state.paperLengthMm) * 100;
 
     if (!bar) {
         // 创建新的柱状图条
         bar = document.createElement('div');
         bar.id = barId;
         bar.className = 'humidity-bar';
-        bar.style.top = `${pos * CONFIG.pixelsPerMm}px`;
+        bar.style.top = `${posPercent}%`;
         bar.dataset.position = pos;
         bar.dataset.maxHumidity = currentHumidity;
 
         // 创建最高湿度线(蓝色)
         const maxLine = document.createElement('div');
         maxLine.className = 'humidity-max-line';
-        maxLine.style.width = `${currentHumidity}%`;
 
         // 创建当前湿度线(绿色)
         const currentLine = document.createElement('div');
         currentLine.className = 'humidity-current-line';
-        currentLine.style.width = `${currentHumidity}%`;
 
         bar.appendChild(maxLine);
         bar.appendChild(currentLine);
         elements.humidityBars.appendChild(bar);
     } else {
+        // 更新位置(纸张长度可能变化)
+        bar.style.top = `${posPercent}%`;
+
         // 更新已有柱状图
         const maxHumidity = parseFloat(bar.dataset.maxHumidity);
         const newMaxHumidity = Math.max(maxHumidity, currentHumidity);
         bar.dataset.maxHumidity = newMaxHumidity;
+    }
 
-        // 更新最高湿度线(蓝色)
-        const maxLine = bar.querySelector('.humidity-max-line');
-        maxLine.style.width = `${newMaxHumidity}%`;
+    // 计算相对于图表最大值的百分比
+    const maxPercent = (parseFloat(bar.dataset.maxHumidity) / state.humidityChartMax) * 100;
+    const currentPercent = (currentHumidity / state.humidityChartMax) * 100;
 
-        // 更新当前湿度线(绿色)
-        const currentLine = bar.querySelector('.humidity-current-line');
-        currentLine.style.width = `${currentHumidity}%`;
+    // 更新线条宽度（横向柱状图）
+    const maxLine = bar.querySelector('.humidity-max-line');
+    const currentLine = bar.querySelector('.humidity-current-line');
 
-        // 如果已经干燥,改变颜色
-        if (currentHumidity <= CONFIG.wetThresholdPercent) {
-            currentLine.style.backgroundColor = '#2ecc71'; // 绿色表示干燥
-            bar.classList.add('dry');
-        } else {
-            currentLine.style.backgroundColor = '#27ae60'; // 深绿色表示仍在干燥
-            bar.classList.remove('dry');
-        }
+    maxLine.style.width = `${Math.min(100, maxPercent)}%`;
+    currentLine.style.width = `${Math.min(100, currentPercent)}%`;
+
+    // 如果已经干燥,改变颜色
+    if (currentHumidity <= CONFIG.wetThresholdPercent) {
+        currentLine.style.backgroundColor = '#2ecc71'; // 绿色表示干燥
+        bar.classList.add('dry');
+    } else {
+        currentLine.style.backgroundColor = '#27ae60'; // 深绿色表示仍在干燥
+        bar.classList.remove('dry');
+    }
+}
+
+function updateHumidityChartScale() {
+    /**
+     * 更新湿度图表的刻度范围
+     * 根据检测到的最高湿度动态调整
+     */
+    // 计算合适的最大值（向上取整到10的倍数，但至少为10）
+    const detectedMax = state.maxHumidityDetected;
+    const newMax = Math.max(10, Math.ceil(detectedMax / 10) * 10);
+
+    const oldMax = state.humidityChartMax;
+    state.humidityChartMax = newMax;
+
+    // 更新X轴标签（每次都更新，保证显示）
+    const xAxisContainer = document.getElementById('humidity-x-axis');
+    if (xAxisContainer) {
+        const labels = xAxisContainer.querySelectorAll('.x-label');
+        const step = newMax / 4;
+        labels[0].textContent = '0%';
+        labels[1].textContent = Math.round(step) + '%';
+        labels[2].textContent = Math.round(step * 2) + '%';
+        labels[3].textContent = Math.round(step * 3) + '%';
+        labels[4].textContent = newMax + '%';
+    }
+
+    if (newMax !== oldMax) {
+
+        // 重新计算所有柱状图的高度
+        const allBars = document.querySelectorAll('.humidity-bar');
+        allBars.forEach(bar => {
+            const maxHumidity = parseFloat(bar.dataset.maxHumidity);
+            const position = parseFloat(bar.dataset.position);
+
+            // 获取当前湿度（从scanData或dryingStats）
+            let currentHumidity = maxHumidity;
+            if (state.systemState === 'SCANNING' || state.systemState === 'DRYING') {
+                // 尝试从数据中获取最新值
+                const dataPoint = state.scanData.find(d => Math.abs(d.position - position) < 1);
+                if (dataPoint) currentHumidity = dataPoint.humidity;
+            }
+
+            const maxPercent = (maxHumidity / newMax) * 100;
+            const currentPercent = (currentHumidity / newMax) * 100;
+
+            const maxLine = bar.querySelector('.humidity-max-line');
+            const currentLine = bar.querySelector('.humidity-current-line');
+
+            if (maxLine) maxLine.style.width = `${Math.min(100, maxPercent)}%`;
+            if (currentLine) currentLine.style.width = `${Math.min(100, currentPercent)}%`;
+        });
+
+        console.log(`[Chart] Scale updated: ${oldMax}% → ${newMax}%`);
     }
 }
 
@@ -608,13 +810,17 @@ function analyzeWetSpots() {
         let effectiveThreshold = CONFIG.wetThresholdPercent;
         if (isRising) {
             // 上升中,读数低于真实,降低阈值以提前捕获
-            effectiveThreshold = CONFIG.wetThresholdPercent * 0.7; // 3.5%
+            effectiveThreshold = CONFIG.wetThresholdPercent * 0.7; // 例如 2% * 0.7 = 1.4%
         } else if (isFalling && point.humidity > CONFIG.wetThresholdPercent * 1.5) {
             // 下降但仍高湿,读数高于真实,稍提高阈值
-            effectiveThreshold = CONFIG.wetThresholdPercent * 1.1; // 5.5%
+            effectiveThreshold = CONFIG.wetThresholdPercent * 1.1; // 例如 2% * 1.1 = 2.2%
         }
 
-        const isWet = point.humidity > effectiveThreshold;
+        // 判断是否为湿点：
+        // 1. 必须高于动态阈值 (effectiveThreshold)
+        // 2. 同时必须高于绝对最低阈值 (1%)，避免噪声误判
+        const absoluteMinThreshold = 1.0;
+        const isWet = point.humidity > effectiveThreshold && point.humidity > absoluteMinThreshold;
 
         if (isWet) {
             consecutiveDryPoints = 0;
@@ -687,15 +893,17 @@ function analyzeWetSpots() {
     console.log(`Analyzed ${state.wetSegments.length} wet segments:`, state.wetSegments);
 
     // 计算全局干燥边界
+    // 使用扩展边界(expandedStart/End)来确保完全覆盖湿点
     if (state.wetSegments.length > 0) {
-        state.dryingBounds.min = Math.min(...state.wetSegments.map(s => s.expandedStart));
-        state.dryingBounds.max = Math.max(...state.wetSegments.map(s => s.expandedEnd));
+        const minExpanded = Math.min(...state.wetSegments.map(s => s.expandedStart));
+        const maxExpanded = Math.max(...state.wetSegments.map(s => s.expandedEnd));
 
-        // 确保边界在纸张范围内
-        state.dryingBounds.min = Math.max(0, state.dryingBounds.min);
-        state.dryingBounds.max = Math.min(state.paperLengthMm, state.dryingBounds.max);
+        // 确保边界在纸张范围内，但不低于第一个湿点或超过最后一个湿点
+        state.dryingBounds.min = Math.max(0, minExpanded);
+        state.dryingBounds.max = Math.min(state.paperLengthMm, maxExpanded);
 
         console.log(`Drying bounds: ${state.dryingBounds.min.toFixed(1)}mm - ${state.dryingBounds.max.toFixed(1)}mm`);
+        console.log(`  (First wet spot: ${state.wetSegments[0].start.toFixed(1)}mm, Last: ${state.wetSegments[state.wetSegments.length - 1].end.toFixed(1)}mm)`);
     }
 }
 
@@ -743,11 +951,16 @@ function finalizeSegment(segment) {
     startMargin = Math.min(25, Math.max(5, startMargin));
     endMargin = Math.min(25, Math.max(5, endMargin));
 
+    // 计算扩展边界，但限制在合理范围内
+    // expandedStart不应该向前扩展超过10mm（避免从0开始干燥）
+    const expandedStart = Math.max(segment.start - 10, segment.start - startMargin);
+    const expandedEnd = segment.end + endMargin;
+
     const wetSegment = {
         start: segment.start,
         end: segment.end,
-        expandedStart: segment.start - startMargin,
-        expandedEnd: segment.end + endMargin,
+        expandedStart: expandedStart,
+        expandedEnd: expandedEnd,
         avgHum: avgHum,
         maxHum: maxHum,
         pointCount: n,
@@ -768,37 +981,104 @@ function finalizeSegment(segment) {
 function reAnalyzeWetSpots() {
     /**
      * 动态重新分析湿点分布
-     * 在干燥过程中根据最新数据更新湿区
+     * 🎯 关键判断: 所有湿点标记都被移除 = 干燥完成
      */
     console.log('⟳ Re-analyzing wet spots with updated data...');
 
-    const oldSegmentCount = state.wetSegments.length;
-    const oldBounds = { ...state.dryingBounds };
+    // 1. 更新可视化 (移除已干燥的湿点标记)
+    updateAllWetSpotVisuals();
 
-    // 重新分析
-    analyzeWetSpots();
+    // 2. 检查是否所有湿点都已移除
+    const remainingWetSpots = document.querySelectorAll('.wet-spot').length;
+    console.log(`📍 Remaining wet spot markers: ${remainingWetSpots}`);
 
-    const newSegmentCount = state.wetSegments.length;
-
-    // 检查湿区变化
-    if (newSegmentCount < oldSegmentCount) {
-        console.log(`✓ Wet segments reduced: ${oldSegmentCount} → ${newSegmentCount}`);
-
-        if (newSegmentCount === 0) {
-            // 🎯 关键判断: 湿点算法检测不到任何湿区 = 干燥完成
-            console.log('✓ No wet segments remaining - Drying complete!');
-            finishDrying();
-            return;
-        } else if (state.dryingBounds.min !== oldBounds.min || state.dryingBounds.max !== oldBounds.max) {
-            console.log(`Updated drying bounds: [${oldBounds.min.toFixed(0)}-${oldBounds.max.toFixed(0)}] → [${state.dryingBounds.min.toFixed(0)}-${state.dryingBounds.max.toFixed(0)}]`);
-        }
+    if (remainingWetSpots === 0) {
+        // 🎯 所有湿点标记都消失了 = 干燥完成
+        console.log('✓ All wet spot markers removed - Drying complete!');
+        completeDrying(); // 直接完成干燥，不需要最后一遍扫描
+        return;
     }
 
-    // 更新可视化 (清除已干燥的湿点标记)
-    updateAllWetSpotVisuals();
+    // 3. 仍有湿点,重新计算干燥边界
+    const oldBounds = { ...state.dryingBounds };
+    analyzeWetSpots();
+
+    // 检查边界是否变化
+    if (state.dryingBounds.min !== oldBounds.min || state.dryingBounds.max !== oldBounds.max) {
+        console.log(`✓ Updated drying bounds: [${oldBounds.min.toFixed(0)}-${oldBounds.max.toFixed(0)}] → [${state.dryingBounds.min.toFixed(0)}-${state.dryingBounds.max.toFixed(0)}]`);
+
+        // 🎯 关键：边界缩小后，立即调整电机运动范围
+        adjustDryingMovementAfterBoundsChange(oldBounds);
+    }
+}
+
+function adjustDryingMovementAfterBoundsChange(oldBounds) {
+    /**
+     * 当干燥边界变化时，调整电机运动
+     * 如果当前目标位置超出新边界，立即更新到新边界
+     */
+    const currentTarget = state.targetPositionMm;
+    const currentPos = state.currentPositionMm;
+    const isMotorStopped = Math.abs(currentPos - currentTarget) < 0.5;
+
+    // 检查当前位置是否超出新边界
+    const posOutsideBounds = currentPos < state.dryingBounds.min || currentPos > state.dryingBounds.max;
+
+    // 如果电机已停止且位置超出边界，强制触发移动
+    if (isMotorStopped && posOutsideBounds) {
+        console.log(`⚠ Motor stopped at ${currentPos.toFixed(0)}mm outside new bounds [${state.dryingBounds.min.toFixed(0)}-${state.dryingBounds.max.toFixed(0)}], forcing movement...`);
+
+        // 根据当前位置决定移动方向
+        if (currentPos < state.dryingBounds.min) {
+            // 低于最小边界，向最大边界移动
+            state.dryingDirection = 1;
+        } else {
+            // 高于最大边界，向最小边界移动
+            state.dryingDirection = -1;
+        }
+        moveToNextDryingPoint();
+        return;
+    }
+
+    // 检查当前目标是否超出新边界
+    if (currentTarget < state.dryingBounds.min || currentTarget > state.dryingBounds.max) {
+        console.log(`⚠ Current target ${currentTarget.toFixed(0)}mm is outside new bounds, adjusting...`);
+
+        // 确定新的移动方向和目标
+        if (state.dryingDirection === -1) {
+            // 正在向最小值移动
+            if (currentPos > state.dryingBounds.max) {
+                // 当前位置已经超出新的最大边界，立即向最大边界移动
+                state.dryingDirection = -1;
+                moveToNextDryingPoint();
+            } else if (currentPos < state.dryingBounds.min) {
+                // 当前位置已经低于新的最小边界，反向移动到最大边界
+                state.dryingDirection = 1;
+                moveToNextDryingPoint();
+            } else {
+                // 在边界内，继续向最小边界移动
+                moveToNextDryingPoint();
+            }
+        } else {
+            // 正在向最大值移动
+            if (currentPos < state.dryingBounds.min) {
+                // 当前位置已经低于新的最小边界，立即向最小边界移动
+                state.dryingDirection = 1;
+                moveToNextDryingPoint();
+            } else if (currentPos > state.dryingBounds.max) {
+                // 当前位置已经超出新的最大边界，反向移动到最小边界
+                state.dryingDirection = -1;
+                moveToNextDryingPoint();
+            } else {
+                // 在边界内，继续向最大边界移动
+                moveToNextDryingPoint();
+            }
+        }
+    }
 } function updateAllWetSpotVisuals() {
     /**
      * 根据最新数据更新所有湿点的可视化
+     * 移除已干燥的湿点(红色标记),但保留柱状图
      */
     const spots = document.querySelectorAll('.wet-spot');
 
@@ -810,18 +1090,21 @@ function reAnalyzeWetSpots() {
         const nearbyData = state.scanData.find(p => Math.abs(p.position - spotPosMm) < 5);
 
         if (nearbyData) {
+            console.log(`[Visual Update] Spot at ${spotPosMm.toFixed(0)}mm: humidity=${nearbyData.humidity.toFixed(1)}%, threshold=${CONFIG.wetThresholdPercent}%`);
+
             if (nearbyData.humidity <= CONFIG.wetThresholdPercent) {
-                // 已干燥,变绿色并降低透明度
-                spot.style.opacity = '0.3';
-                spot.style.backgroundColor = '#2ecc71';
-                spot.querySelector('.wet-spot-label').textContent = `${nearbyData.humidity.toFixed(1)}% ✓`;
+                // 已干燥,移除湿点标记(但保留柱状图)
+                console.log(`[Visual Update] Removing dry spot at ${spotPosMm.toFixed(0)}mm`);
+                spot.remove();
             } else {
-                // 仍然湿,更新强度
+                // 仍然湿,更新标签和强度
                 const intensity = Math.min(1.0, (nearbyData.humidity - CONFIG.wetThresholdPercent) / 20);
                 spot.style.opacity = '1';
                 spot.style.backgroundColor = `rgba(0, 100, 255, ${0.2 + intensity * 0.5})`;
                 spot.querySelector('.wet-spot-label').textContent = `${nearbyData.humidity.toFixed(1)}%`;
             }
+        } else {
+            console.warn(`[Visual Update] No nearby data found for spot at ${spotPosMm.toFixed(0)}mm`);
         }
     });
 }
@@ -843,12 +1126,17 @@ async function startDrying() {
 
 function handleDryingMovement(currentPos) {
     // Check if we reached the target bound
-    if (state.dryingDirection === -1 && currentPos <= state.dryingBounds.min + 2) {
+    const atMinBound = state.dryingDirection === -1 && currentPos <= state.dryingBounds.min + 2;
+    const atMaxBound = state.dryingDirection === 1 && currentPos >= state.dryingBounds.max - 2;
+
+    if (atMinBound) {
         // Reached left bound, switch to right
+        console.log(`[Drying] Reached min bound (${state.dryingBounds.min.toFixed(0)}mm), reversing to max (${state.dryingBounds.max.toFixed(0)}mm)`);
         state.dryingDirection = 1;
         moveToNextDryingPoint();
-    } else if (state.dryingDirection === 1 && currentPos >= state.dryingBounds.max - 2) {
+    } else if (atMaxBound) {
         // Reached right bound, switch to left
+        console.log(`[Drying] Reached max bound (${state.dryingBounds.max.toFixed(0)}mm), reversing to min (${state.dryingBounds.min.toFixed(0)}mm)`);
         state.dryingDirection = -1;
         moveToNextDryingPoint();
     }
@@ -869,28 +1157,87 @@ function checkDryingProgress(pos, currentHumidity) {
 
     // 不需要等待,直接检查当前湿区状态
     // 实时判断,无需多次确认
-} async function finishDrying() {
+} async function completeDrying() {
     /**
-     * 干燥完成
+     * 干燥完成 - 直接回到起始位置
+     * 所有湿点已被移除，停止加热和风扇，回到home位置
      */
-    console.log("✓ Drying completed!");
+    console.log("✓ All wet spots removed! Drying completed successfully!");
 
-    // 停止加热和风扇
+    // 1. 将所有湿度柱状图的绿色柱子归零
+    const allBars = document.querySelectorAll('.humidity-bar');
+    allBars.forEach(bar => {
+        const currentLine = bar.querySelector('.humidity-current-line');
+        if (currentLine) {
+            currentLine.style.width = '0%';
+            currentLine.style.backgroundColor = '#2ecc71'; // 绿色表示干燥
+        }
+        bar.classList.add('dry');
+    });
+    console.log(`✓ Reset ${allBars.length} humidity bars to zero`);
+
+    // 2. 停止加热和风扇
+    pubsub.publish('fan/speed', '0');
+    pubsub.publish('heater/power', '0');
+
+    // 3. 回到起始点
+    console.log("Returning to home position...");
+    if (state.simulatedPositionMm !== undefined && state.simulatedPositionMm !== null) {
+        startPositionSimulation(0);
+    }
+    pubsub.publish('motor/home', '');
+    await waitForPosition(0, 10000);
+
+    // 4. 设置状态为完成
+    setState('FINISHED');
+
+    // 显示完成提示
+    console.log("🎉 Drying process completed successfully!");
+    alert('Drying completed successfully! Paper is now dry.');
+
+    // 返回空闲状态
+    setTimeout(() => {
+        setState('IDLE');
+    }, 2000);
+}
+
+async function finishDrying() {
+    /**
+     * 干燥完成 - 最后一次确认扫描
+     * 从当前位置到末尾,再回到起始点,保持干燥状态
+     */
+    console.log("✓ All wet spots removed! Starting final drying pass...");
+
+    const currentPos = state.currentPositionMm;
+    const paperEnd = CONFIG.paperLengthMm;
+
+    // 🎯 最后一遍: 当前位置 → 末尾 → 起始点,全程干燥
+
+    // 1. 移动到末尾 (保持风扇和加热器开启)
+    console.log(`Final pass: ${currentPos.toFixed(0)}mm → ${paperEnd}mm (with drying)`);
+    if (state.simulatedPositionMm !== undefined && state.simulatedPositionMm !== null) {
+        startPositionSimulation(paperEnd);
+    }
+    pubsub.publish('motor/moveto', paperEnd.toString());
+    await waitForPosition(paperEnd, 15000);
+
+    // 2. 回到起始点 (保持风扇和加热器开启)
+    console.log(`Final pass: ${paperEnd}mm → 0mm (with drying)`);
+    if (state.simulatedPositionMm !== undefined && state.simulatedPositionMm !== null) {
+        startPositionSimulation(0);
+    }
+    pubsub.publish('motor/home', '');
+    await waitForPosition(0, 15000);
+
+    // 3. 停止加热和风扇
+    console.log("✓ Final drying pass completed!");
     pubsub.publish('fan/speed', '0');
     pubsub.publish('heater/power', '0');
 
     setState('FINISHED');
 
     // 显示完成提示
-    alert('🎉 干燥完成! 所有湿区已处理。');
-
-    // 电机回零
-    console.log("Returning motor to home position...");
-    startPositionSimulation(0);
-    pubsub.publish('motor/home', '');
-
-    // 等待回零完成
-    await waitForPosition(0, 5000);
+    alert('Drying completed!');
 
     // 返回空闲状态
     setTimeout(() => {
@@ -901,9 +1248,16 @@ function checkDryingProgress(pos, currentHumidity) {
 function stopAll() {
     setState('IDLE');
     stopPositionSimulation();
-    pubsub.publish('motor/stop', ''); // Assuming stop command exists or just stop sending
-    // Actually stepper doesn't have stop, but we can stop sending moveto
-    // Ideally we should stop the motor
+
+    // 注意：步进电机使用阻塞式执行，无法中途停止
+    // 在模拟器模式下可以停止，但真实设备必须等待当前移动完成
+    if (state.isSimulatorMode) {
+        pubsub.publish('motor/stop', '');
+    } else {
+        // 真实设备：停止发送新的移动命令即可
+        // 当前正在执行的移动会完成
+        console.log('[StopAll] Motor will stop after current movement completes');
+    }
 
     pubsub.publish('fan/speed', '0');
     pubsub.publish('heater/power', '0');
@@ -929,16 +1283,22 @@ function setState(newState) {
 
 function waitForPosition(targetMm, timeoutMs) {
     return new Promise(resolve => {
+        let resolved = false;
         const check = setInterval(() => {
             if (Math.abs(state.currentPositionMm - targetMm) < 2) {
                 clearInterval(check);
-                resolve();
+                resolved = true;
+                console.log(`✓ Position reached: ${state.currentPositionMm}mm (target: ${targetMm}mm)`);
+                resolve(true);
             }
         }, 100);
 
         setTimeout(() => {
             clearInterval(check);
-            resolve();
+            if (!resolved) {
+                console.warn(`⚠ Position wait timeout after ${timeoutMs}ms. Current: ${state.currentPositionMm}mm, Target: ${targetMm}mm`);
+                resolve(false);
+            }
         }, timeoutMs);
     });
 }
@@ -953,6 +1313,10 @@ function startPositionSimulation(targetMm) {
     state.isSimulating = true;
 
     // Calculate movement parameters
+    // Ensure simulatedPositionMm has a valid value (default to currentPositionMm or 0)
+    if (state.simulatedPositionMm === undefined || state.simulatedPositionMm === null) {
+        state.simulatedPositionMm = state.currentPositionMm || 0;
+    }
     const startPos = state.simulatedPositionMm;
     const distance = Math.abs(targetMm - startPos);
     const direction = targetMm > startPos ? 1 : -1;
