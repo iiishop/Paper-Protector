@@ -1,8 +1,8 @@
 # Paper Protector
 
-![alt text](Doc/IMG_20251209_203543.jpg)
+![alt text](Materials/IMG_20251209_203543.jpg)
 ---
-<video controls src="Doc/QQ视频20260112051459 (online-video-cutter.com).mp4" title="Title"></video>
+<video controls src="Materials/QQ视频20260112051459 (online-video-cutter.com).mp4" title="Title"></video>
 ---
 
 ## 1. What it does
@@ -69,7 +69,7 @@ This project is an automated paper preservation system that detects and removes 
 
 ## 3. Wiring Diagram
 
-![Breadboard wiring diagram](Doc/PP_bb.png)
+![Breadboard wiring diagram](Materials/PP_bb.png)
 **Figure 1: Complete breadboard wiring layout** - Shows connections between Arduino Uno, A4988 stepper driver, DHT22 sensor, N-channel MOSFETs, and power distribution. The diagram illustrates the split-power architecture with USB power for logic (5V) and external 12V DC supply for actuators (motor, fan, heater).
 
 ---
