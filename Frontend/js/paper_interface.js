@@ -11,7 +11,8 @@ const CONFIG = {
     dryFanSpeed: 255,
     dryHeaterPower: 255,
     wetThresholdPercent: 2.0, // Relative humidity above zero to consider "wet"
-    scanStepMm: 5, // Resolution of scanning
+    scanStepRevolutions: 1, // Incremental scan step (1 revolution per move)
+    dataSampleDelayMs: 1500, // Wait time for sensor to stabilize after each move
     motorMaxSpeed: 200, // Assuming some max speed for calculations
     motorSpeedRevPerSec: 2.0, // Motor speed: 2 revolutions per second
     mmPerRevolution: 1.498 // mm per revolution (must match Arduino)
@@ -124,7 +125,11 @@ function initUI() {
 
     elements.btnCalibrate.addEventListener('click', calibrateZero);
     elements.btnResetCal.addEventListener('click', resetCalibration);
-    elements.btnStartScan.addEventListener('click', startScan);
+    elements.btnStartScan.addEventListener('click', () => {
+        console.log('Start Scan button clicked');
+        console.log('Button disabled state:', elements.btnStartScan.disabled);
+        startScan();
+    });
     elements.btnCalibrateMotor.addEventListener('click', calibrateMotor);
     elements.btnHomeMotor.addEventListener('click', homeMotor);
     elements.btnStop.addEventListener('click', stopAll);
@@ -367,12 +372,8 @@ function handlePosition(topic, payload) {
             state.simulatedPositionMm = mm;
             updatePositionVisuals(mm);
 
-            // Check scan bounds
-            if (state.systemState === 'SCANNING') {
-                if (mm >= state.paperLengthMm - 2) { // Tolerance
-                    finishScan();
-                }
-            }
+            // Scan completion is now handled by startScan() loop
+            // No automatic finish based on position
 
             // Check drying bounds
             if (state.systemState === 'DRYING') {
@@ -440,6 +441,12 @@ function updatePositionVisuals(mm) {
 // --- Calibration ---
 
 function calibrateZero() {
+    console.log('=== Calibrate Zero Clicked ===');
+    console.log('Current readings:', {
+        temp: state.currentTemp,
+        humidity: state.currentHumidity
+    });
+
     if (state.currentTemp !== 0 && state.currentHumidity !== 0) {
         state.zeroTemp = state.currentTemp;
         state.zeroHumidity = state.currentHumidity;
@@ -448,6 +455,15 @@ function calibrateZero() {
         elements.calibrationStatus.textContent = `Calibrated (T:${state.zeroTemp.toFixed(1)}, H:${state.zeroHumidity.toFixed(1)})`;
         elements.calibrationStatus.style.color = 'green';
         updateButtonStates();
+
+        console.log('✓ Calibration successful:', {
+            zeroTemp: state.zeroTemp,
+            zeroHumidity: state.zeroHumidity,
+            isCalibrated: state.isCalibrated
+        });
+    } else {
+        console.warn('❌ Calibration failed: Invalid sensor readings');
+        alert('传感器读数无效！\n\n请等待传感器数据更新后再校准。');
     }
 }
 
@@ -512,36 +528,101 @@ function setWetThreshold() {
 }
 
 function updateButtonStates() {
-    elements.btnStartScan.disabled = !state.isConnected || !state.isCalibrated || state.systemState !== 'IDLE';
+    const scanEnabled = state.isConnected && state.isCalibrated && state.systemState === 'IDLE';
+    elements.btnStartScan.disabled = !scanEnabled;
     elements.btnCalibrateMotor.disabled = !state.isConnected;
     elements.btnHomeMotor.disabled = !state.isConnected;
+
+    console.log('Button states updated:', {
+        isConnected: state.isConnected,
+        isCalibrated: state.isCalibrated,
+        systemState: state.systemState,
+        scanButtonEnabled: scanEnabled
+    });
 }
 
 // --- Scanning Logic ---
 
 async function startScan() {
-    if (!state.isCalibrated) return;
+    console.log('=== Start Scan Clicked ===');
+    console.log('State:', {
+        isConnected: state.isConnected,
+        isCalibrated: state.isCalibrated,
+        systemState: state.systemState,
+        currentTemp: state.currentTemp,
+        currentHumidity: state.currentHumidity,
+        zeroTemp: state.zeroTemp,
+        zeroHumidity: state.zeroHumidity
+    });
 
+    // Check calibration status
+    if (!state.isCalibrated) {
+        console.warn('❌ Scan aborted: Not calibrated');
+        alert('请先进行湿度调零校准！\n\n点击 "Calibrate Zero" 按钮进行校准。');
+        return;
+    }
+
+    // Check connection status
+    if (!state.isConnected) {
+        console.warn('❌ Scan aborted: Not connected');
+        alert('设备未连接！\n\n请确保 WebSocket 已连接或切换到模拟器模式。');
+        return;
+    }
+
+    console.log('✓ Starting scan...');
     setState('SCANNING');
     state.scanData = [];
+    state.scanStartTime = Date.now();
     elements.wetSpotsLayer.innerHTML = ''; // Clear previous
 
     // 1. Move to Home (0)
     console.log("Homing...");
-    startPositionSimulation(0); // Start simulation for homing
+    startPositionSimulation(0);
     pubsub.publish('motor/home', '');
 
-    // Wait for homing (simple timeout for now, ideally listen for status)
-    // Better: wait until position is near 0
-    await waitForPosition(0, 5000);
+    const homed = await waitForPosition(0, 5000);
+    if (!homed) {
+        console.error("Homing failed or timed out");
+        setState('IDLE');
+        alert("归零失败，请检查电机连接");
+        return;
+    }
 
-    // 2. Turn on Fan (Low)
+    // 2. Turn on Fan
     pubsub.publish('fan/speed', CONFIG.scanSpeed.toString());
+    await new Promise(resolve => setTimeout(resolve, 500));
 
-    // 3. Start moving to end
-    console.log(`Scanning to ${state.paperLengthMm}mm...`);
-    startPositionSimulation(state.paperLengthMm);
-    pubsub.publish('motor/moveto', state.paperLengthMm.toString());
+    // 3. Incremental scan: rotate one revolution at a time and collect data
+    console.log(`Starting incremental scan to ${state.paperLengthMm}mm (${CONFIG.scanStepRevolutions} revolution per step)...`);
+
+    let currentPositionMm = 0;
+    const revolutionsNeeded = Math.ceil(state.paperLengthMm / CONFIG.mmPerRevolution);
+
+    console.log(`Target: ${state.paperLengthMm}mm requires ~${revolutionsNeeded} revolutions`);
+
+    for (let i = 0; i < revolutionsNeeded && state.systemState === 'SCANNING'; i++) {
+        // Move one revolution forward
+        const revolutions = CONFIG.scanStepRevolutions;
+        currentPositionMm += revolutions * CONFIG.mmPerRevolution;
+
+        console.log(`Step ${i + 1}/${revolutionsNeeded}: Rotating ${revolutions} revolution(s)...`);
+        startPositionSimulation(currentPositionMm);
+        pubsub.publish('motor/rotate', revolutions.toString());
+
+        // Wait for rotation to complete (estimate based on speed)
+        const rotationTime = (revolutions / CONFIG.motorSpeedRevPerSec) * 1000;
+        await new Promise(resolve => setTimeout(resolve, rotationTime + 500)); // Add 500ms buffer
+
+        // Wait for sensor to stabilize and data to be collected
+        console.log(`Waiting ${CONFIG.dataSampleDelayMs}ms for sensor reading...`);
+        await new Promise(resolve => setTimeout(resolve, CONFIG.dataSampleDelayMs));
+
+        // Data is automatically recorded by handleHumidity() callback
+        console.log(`Current scan data points: ${state.scanData.length}`);
+    }
+
+    // Scan complete
+    finishScan();
 }
 
 function recordScanData(pos, humidity) {
@@ -606,16 +687,29 @@ function recordDryingData(pos, humidity) {
         reAnalyzeWetSpots(); // 内部会自动判断是否完成
     }
 } function finishScan() {
-    console.log("Scan finished");
+    console.log(`Scan finished at position ${state.currentPositionMm.toFixed(1)}mm`);
+    console.log(`Total scan data points: ${state.scanData.length}`);
+
     pubsub.publish('fan/speed', '0'); // Stop fan temporarily
+
+    // Check if we have any scan data
+    if (state.scanData.length < 1) {
+        console.warn(`No scan data collected`);
+        setState('IDLE');
+        alert(`扫描数据为空，请检查设备连接和传感器状态。`);
+        return;
+    }
 
     analyzeWetSpots();
 
     if (state.wetSegments.length > 0) {
+        console.log(`Detected ${state.wetSegments.length} wet segments`);
         startDrying();
     } else {
+        // Even with data, no wet spots above threshold
+        console.log('No wet spots detected above threshold');
         setState('FINISHED');
-        alert("No wet spots detected!");
+        alert(`扫描完成！\n未检测到超过阈值(${CONFIG.wetThresholdPercent}%)的湿点。`);
         setState('IDLE');
     }
 }
@@ -784,8 +878,12 @@ function analyzeWetSpots() {
     // Sort and prepare data
     const sortedData = state.scanData.sort((a, b) => a.position - b.position);
 
+    console.log(`Analyzing ${sortedData.length} scan data points`);
+    console.log(`Position range: ${sortedData[0]?.position.toFixed(1)}mm - ${sortedData[sortedData.length - 1]?.position.toFixed(1)}mm`);
+    console.log(`Humidity range: ${Math.min(...sortedData.map(d => d.humidity)).toFixed(1)}% - ${Math.max(...sortedData.map(d => d.humidity)).toFixed(1)}%`);
+
     if (sortedData.length < 2) {
-        console.warn("Insufficient scan data");
+        console.warn("❌ Insufficient scan data - need at least 2 points");
         return;
     }
 
