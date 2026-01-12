@@ -1,8 +1,15 @@
 # Paper Protector
 
-![alt text](Materials/IMG_20251209_203543.jpg)
+![Paper Protector Prototype](Materials/IMG_20251209_203543.jpg)
+
 ---
-<video controls src="Materials/QQ视频20260112051459 (online-video-cutter.com).mp4" title="Title"></video>
+
+## Video Demonstration
+
+**Watch the system in action**: [Paper Protector Demo on Bilibili](https://www.bilibili.com/video/BV1xwraBiE8S)
+
+*The video file is also available in this repository at [`Materials/QQ视频20260112051459 (online-video-cutter.com).mp4`](https://github.com/iiishop/Paper-Protector/blob/main/Materials/QQ%E8%A7%86%E9%A2%9120260112051459%20(online-video-cutter.com).mp4), but GitHub may not display it directly due to file size. Please use the Bilibili link above for online viewing.*
+
 ---
 
 ## 1. What it does
